@@ -19,17 +19,19 @@
 </head>
 <body>
     <div id="root">
-        <!-- Fallback if JS fails -->
+        <!-- Initial Loading State -->
         <div class="flex h-screen items-center justify-center text-slate-400">
             <div class="text-center">
-                <div class="mb-4 inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin"></div>
-                <p>Initializing SCIS Portal...</p>
+                <div id="loader-icon" class="mb-4 inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin"></div>
+                <p id="loader-text">Initializing SCIS Portal...</p>
+                <p id="debug-info" class="text-xs mt-4 opacity-50"></p>
             </div>
         </div>
     </div>
 
     <!-- 1. FIREBASE INITIALIZATION -->
     <script type="module">
+        console.log("Starting Firebase script...");
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -43,13 +45,18 @@
             appId: "1:929403398815:web:c6634925bfac5b665650aa"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
 
-        // Export to global scope so the React script can see them
-        window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp, signInAnonymously, signOut, onAuthStateChanged };
-        console.log("Firebase initialized");
+            // Export to global scope so the React script can see them
+            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp, signInAnonymously, signOut, onAuthStateChanged };
+            console.log("Firebase successfully initialized");
+        } catch (error) {
+            console.error("Firebase Init Error:", error);
+            document.getElementById('loader-text').innerText = "Connection Error: Please check your configuration.";
+        }
     </script>
 
     <!-- 2. REACT INTERFACE (JSX) -->
@@ -74,11 +81,22 @@
             const [transactions, setTransactions] = useState([]);
             const [dailyUsed, setDailyUsed] = useState(0);
             const [loading, setLoading] = useState(true);
+            const [errorMsg, setErrorMsg] = useState(null);
 
             useEffect(() => {
-                // Wait for Firebase to be ready in global window
+                console.log("React app mounted, waiting for Firebase...");
+                
+                // Safety timeout: if after 10 seconds it's still loading, show an error
+                const timeout = setTimeout(() => {
+                    if (loading) {
+                        setErrorMsg("Database connection is taking longer than expected. Please ensure you have initialized your Firestore 'houseTotals' collection.");
+                        setLoading(false);
+                    }
+                }, 10000);
+
                 const checkFirebase = setInterval(() => {
                     if (window.FirebaseDB) {
+                        console.log("Firebase found in window! Starting app logic...");
                         clearInterval(checkFirebase);
                         startApp();
                     }
@@ -87,8 +105,13 @@
                 function startApp() {
                     const { auth, db, onAuthStateChanged, collection, query, onSnapshot } = window.FirebaseDB;
 
+                    // Auth check
                     onAuthStateChanged(auth, (u) => {
+                        console.log("Auth state changed:", u ? "User Logged In" : "Not Logged In");
                         setUser(u);
+                        setLoading(false);
+                    }, (err) => {
+                        console.error("Auth Listener Error:", err);
                         setLoading(false);
                     });
 
@@ -96,8 +119,14 @@
                     const totalsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals');
                     onSnapshot(query(totalsRef), (snapshot) => {
                         const totals = {};
+                        if (snapshot.empty) {
+                            console.warn("HouseTotals collection is empty. Make sure you added the house documents!");
+                        }
                         snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
                         setHouseTotals(totals);
+                    }, (err) => {
+                        console.error("Firestore Totals Error:", err);
+                        setErrorMsg("Firestore Permission Error. Ensure your Security Rules match the setup guide.");
                     });
 
                     // Sync History
@@ -105,9 +134,11 @@
                     onSnapshot(query(transRef), (snapshot) => {
                         const list = [];
                         snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                        setTransactions(list.sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds).slice(0, 10));
+                        setTransactions(list.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).slice(0, 10));
                     });
                 }
+
+                return () => clearTimeout(timeout);
             }, []);
 
             useEffect(() => {
@@ -140,7 +171,10 @@
 
             if (loading) return (
                 <div className="flex h-screen items-center justify-center">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin"></div>
+                    <div className="text-center">
+                        <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin mx-auto mb-4"></div>
+                        <p className="text-slate-500">Connecting to Database...</p>
+                    </div>
                 </div>
             );
 
@@ -162,6 +196,11 @@
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-6">
+                        {errorMsg && (
+                            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-medium">
+                                ⚠️ {errorMsg}
+                            </div>
+                        )}
                         {view === 'public' && <Dashboard houseTotals={houseTotals} transactions={transactions} />}
                         {view === 'login' && <Login onLogin={() => window.FirebaseDB.signInAnonymously(window.FirebaseDB.auth).then(() => setView('teacher'))} />}
                         {view === 'teacher' && <Teacher awardPoints={awardPoints} remaining={DAILY_LIMIT - dailyUsed} />}
