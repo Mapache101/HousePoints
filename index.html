@@ -9,12 +9,12 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .loading-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .bar-transition { transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
     </style>
 </head>
 <body>
@@ -24,7 +24,6 @@
             <div class="text-center">
                 <div id="loader-icon" class="mb-4 inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin"></div>
                 <p id="loader-text">Initializing SCIS Portal...</p>
-                <p id="debug-info" class="text-xs mt-4 opacity-50"></p>
             </div>
         </div>
     </div>
@@ -50,19 +49,18 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            // Export to global scope so the React script can see them
             window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp, signInAnonymously, signOut, onAuthStateChanged };
             console.log("Firebase successfully initialized");
         } catch (error) {
             console.error("Firebase Init Error:", error);
-            document.getElementById('loader-text').innerText = "Connection Error: Please check your configuration.";
+            const loaderText = document.getElementById('loader-text');
+            if (loaderText) loaderText.innerText = "Connection Error: Check Firebase Config.";
         }
     </script>
 
     <!-- 2. REACT INTERFACE (JSX) -->
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } = Recharts;
 
         const HOUSES = [
             { id: 'centaurs', name: 'Centaurs', color: '#3b82f6' }, // Blue
@@ -74,6 +72,38 @@
         const DAILY_LIMIT = 50;
         const APP_ID = 'scis-house-points';
 
+        // --- Custom Robust Bar Chart Component ---
+        function CustomBarChart({ data }) {
+            const maxPoints = Math.max(...data.map(d => d.points), 10); // Min scale of 10
+            
+            return (
+                <div className="w-full h-full flex items-end justify-around pt-10 pb-2">
+                    {data.map((house) => {
+                        const heightPercent = (house.points / maxPoints) * 100;
+                        return (
+                            <div key={house.name} className="flex flex-col items-center flex-1 group">
+                                <div className="relative w-full flex flex-col items-center">
+                                    {/* Tooltip on hover */}
+                                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-2 whitespace-nowrap z-10">
+                                        {house.points} Points
+                                    </div>
+                                    {/* The Bar */}
+                                    <div 
+                                        className="w-12 md:w-16 rounded-t-lg shadow-sm bar-transition"
+                                        style={{ 
+                                            height: `${Math.max(heightPercent, 2)}%`, 
+                                            backgroundColor: house.color 
+                                        }}
+                                    ></div>
+                                </div>
+                                <span className="mt-4 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">{house.name}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
         function App() {
             const [user, setUser] = useState(null);
             const [view, setView] = useState('public');
@@ -84,19 +114,15 @@
             const [errorMsg, setErrorMsg] = useState(null);
 
             useEffect(() => {
-                console.log("React app mounted, waiting for Firebase...");
-                
-                // Safety timeout: if after 10 seconds it's still loading, show an error
                 const timeout = setTimeout(() => {
                     if (loading) {
-                        setErrorMsg("Database connection is taking longer than expected. Please ensure you have initialized your Firestore 'houseTotals' collection.");
+                        setErrorMsg("Database connection timeout. Please check Phase 7 of the setup guide.");
                         setLoading(false);
                     }
                 }, 10000);
 
                 const checkFirebase = setInterval(() => {
                     if (window.FirebaseDB) {
-                        console.log("Firebase found in window! Starting app logic...");
                         clearInterval(checkFirebase);
                         startApp();
                     }
@@ -105,31 +131,23 @@
                 function startApp() {
                     const { auth, db, onAuthStateChanged, collection, query, onSnapshot } = window.FirebaseDB;
 
-                    // Auth check
                     onAuthStateChanged(auth, (u) => {
-                        console.log("Auth state changed:", u ? "User Logged In" : "Not Logged In");
                         setUser(u);
                         setLoading(false);
-                    }, (err) => {
-                        console.error("Auth Listener Error:", err);
-                        setLoading(false);
-                    });
+                    }, (err) => setLoading(false));
 
-                    // Sync Totals
                     const totalsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals');
                     onSnapshot(query(totalsRef), (snapshot) => {
                         const totals = {};
                         if (snapshot.empty) {
-                            console.warn("HouseTotals collection is empty. Make sure you added the house documents!");
+                            setErrorMsg("No house data found. Please create the 'houseTotals' collection in Firestore.");
                         }
                         snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
                         setHouseTotals(totals);
                     }, (err) => {
-                        console.error("Firestore Totals Error:", err);
-                        setErrorMsg("Firestore Permission Error. Ensure your Security Rules match the setup guide.");
+                        setErrorMsg("Firestore Permission Error. Check your Security Rules.");
                     });
 
-                    // Sync History
                     const transRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions');
                     onSnapshot(query(transRef), (snapshot) => {
                         const list = [];
@@ -166,14 +184,15 @@
                     await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                         houseId, amount, reason, timestamp: Timestamp.now(), teacherId: user.uid
                     });
-                } catch (e) { alert("Error updating points. Check Firestore rules."); }
+                    setView('public');
+                } catch (e) { alert("Error: Verify your Firestore Rules."); }
             };
 
             if (loading) return (
                 <div className="flex h-screen items-center justify-center">
                     <div className="text-center">
                         <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin mx-auto mb-4"></div>
-                        <p className="text-slate-500">Connecting to Database...</p>
+                        <p className="text-slate-500 font-medium">Connecting to SCIS Database...</p>
                     </div>
                 </div>
             );
@@ -190,12 +209,12 @@
                             {user && !user.isAnonymous ? (
                                 <button onClick={() => setView('teacher')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'teacher' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Award</button>
                             ) : (
-                                <button onClick={() => setView('login')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Teacher</button>
+                                <button onClick={() => setView('login')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Teacher Access</button>
                             )}
                         </div>
                     </nav>
 
-                    <main className="max-w-6xl mx-auto p-6">
+                    <main className="max-w-6xl mx-auto p-4 md:p-8">
                         {errorMsg && (
                             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-medium">
                                 ⚠️ {errorMsg}
@@ -212,7 +231,7 @@
         function Dashboard({ houseTotals, transactions }) {
             const data = HOUSES.map(h => ({ name: h.name, points: houseTotals[h.id] || 0, color: h.color })).sort((a,b) => b.points - a.points);
             return (
-                <div className="space-y-8">
+                <div className="space-y-8 animate-in">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {data.map(h => (
                             <div key={h.name} className="bg-white p-6 rounded-2xl border shadow-sm text-center">
@@ -222,33 +241,23 @@
                         ))}
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border shadow-sm min-h-[400px]">
-                            <h2 className="text-lg font-bold mb-6 text-slate-800">Standings</h2>
-                            <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={data}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600}} />
-                                        <YAxis hide />
-                                        <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius:'12px', border:'none', boxShadow:'0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-                                        <Bar dataKey="points" radius={[10, 10, 0, 0]} barSize={50}>
-                                            {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border shadow-sm min-h-[400px] flex flex-col">
+                            <h2 className="text-lg font-bold mb-4 text-slate-800">Current Standings</h2>
+                            <div className="flex-1 min-h-[300px]">
+                                <CustomBarChart data={data} />
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded-2xl border shadow-sm">
-                            <h2 className="text-lg font-bold mb-4 text-slate-800">Activity Log</h2>
+                            <h2 className="text-lg font-bold mb-4 text-slate-800">Recent Activity</h2>
                             <div className="space-y-4">
-                                {transactions.length === 0 ? <p className="text-center text-slate-400 py-10 text-sm italic">No entries yet</p> : 
+                                {transactions.length === 0 ? <p className="text-center text-slate-400 py-10 text-sm italic">No entries logged.</p> : 
                                     transactions.map(t => (
                                         <div key={t.id} className="text-sm border-b border-slate-50 pb-3 last:border-0">
                                             <div className="flex justify-between font-bold">
                                                 <span style={{ color: HOUSES.find(x => x.id === t.houseId)?.color }}>{HOUSES.find(x => x.id === t.houseId)?.name}</span>
                                                 <span className={t.amount > 0 ? 'text-green-600' : 'text-red-600'}>{t.amount > 0 ? '+' : ''}{t.amount}</span>
                                             </div>
-                                            <p className="text-slate-500 text-xs mt-1">{t.reason}</p>
+                                            <p className="text-slate-500 text-[11px] mt-1">{t.reason}</p>
                                         </div>
                                     ))
                                 }
@@ -266,9 +275,9 @@
             const [loading, setLoading] = useState(false);
 
             const handleAward = async () => {
+                if (!reason) return;
                 setLoading(true);
                 await awardPoints(house, pts, reason);
-                setReason('');
                 setLoading(false);
             };
 
@@ -277,7 +286,7 @@
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-bold">Award Points</h2>
                         <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold text-slate-400">Budget</p>
+                            <p className="text-[10px] uppercase font-bold text-slate-400">Your Budget</p>
                             <p className="text-lg font-bold text-blue-600">{remaining} pts</p>
                         </div>
                     </div>
@@ -291,12 +300,12 @@
                             ))}
                         </div>
                         <div className="grid grid-cols-3 gap-4 items-center">
-                            <label className="text-sm font-bold text-slate-700">Value:</label>
+                            <label className="text-sm font-bold text-slate-700">Point Value:</label>
                             <input type="number" value={pts} onChange={e => setPts(parseInt(e.target.value) || 0)} className="col-span-2 p-3 bg-slate-50 rounded-xl border-none font-bold text-center" />
                         </div>
                         <input type="text" placeholder="Reason (e.g. Sports Day)..." value={reason} onChange={e => setReason(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl border-none" />
                         <button onClick={handleAward} disabled={loading || remaining < Math.abs(pts) || !reason} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50">
-                            {loading ? "Sending..." : `Award ${pts} Points`}
+                            {loading ? "Processing..." : `Award ${pts} Points`}
                         </button>
                     </div>
                 </div>
@@ -307,9 +316,9 @@
             return (
                 <div className="max-w-md mx-auto text-center py-20">
                     <div className="bg-white p-12 rounded-3xl border shadow-sm">
-                        <div className="text-4xl mb-6">🔒</div>
+                        <div className="text-4xl mb-6">🔑</div>
                         <h2 className="text-2xl font-bold mb-4">Teacher Access</h2>
-                        <p className="text-slate-500 mb-8 leading-relaxed">Please enter the portal to award points. All points are logged for tracking.</p>
+                        <p className="text-slate-500 mb-8 leading-relaxed">Authentication is required to track daily point limits. All activity is logged.</p>
                         <button onClick={onLogin} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition">Enter Portal</button>
                     </div>
                 </div>
