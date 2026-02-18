@@ -1,0 +1,507 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInAnonymously, 
+  signInWithCustomToken,
+  signOut 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  increment, 
+  query, 
+  getDoc,
+  Timestamp 
+} from 'firebase/firestore';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell 
+} from 'recharts';
+import { 
+  Trophy, 
+  ShieldCheck, 
+  LogOut, 
+  History, 
+  PlusCircle, 
+  MinusCircle, 
+  TrendingUp,
+  User,
+  Clock
+} from 'lucide-react';
+
+// --- Configuration & Initialization ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+  authDomain: "scis-house-points.firebaseapp.com",
+  projectId: "scis-house-points",
+  storageBucket: "scis-house-points.firebasestorage.app",
+  messagingSenderId: "929403398815",
+  appId: "1:929403398815:web:c6634925bfac5b665650aa"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
+
+const HOUSES = [
+  { id: 'centaurs', name: 'Centaurs', color: '#3b82f6' }, // Blue
+  { id: 'pegasus', name: 'Pegasus', color: '#22c55e' },   // Green
+  { id: 'titans', name: 'Titans', color: '#eab308' },    // Yellow
+  { id: 'unicorns', name: 'Unicorns', color: '#ef4444' }  // Red
+];
+
+const DAILY_LIMIT = 50; // Max points a teacher can give/take per day
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('public'); // 'public', 'teacher', 'login'
+  const [houseTotals, setHouseTotals] = useState({});
+  const [transactions, setTransactions] = useState([]);
+  const [teacherDailyTotal, setTeacherDailyTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 1. Auth Initialization
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          // Default to anonymous for prototype if no token provided
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth error:", err);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Data Sync
+  useEffect(() => {
+    if (loading) return;
+
+    // Sync House Totals
+    const totalsRef = collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals');
+    const unsubTotals = onSnapshot(query(totalsRef), (snapshot) => {
+      const totals = {};
+      snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
+      // Initialize if empty (local default until DB populates)
+      if (Object.keys(totals).length === 0) {
+        HOUSES.forEach(h => { totals[h.id] = 0; });
+      }
+      setHouseTotals(totals);
+    }, (err) => {
+      console.error(err);
+      setError("Waiting for database connection or permissions...");
+    });
+
+    // Sync Recent Transactions
+    const transRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
+    const unsubTrans = onSnapshot(query(transRef), (snapshot) => {
+      const list = [];
+      snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setTransactions(list.sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds).slice(0, 10));
+    }, (err) => console.log("Transactions stream limited."));
+
+    return () => {
+      unsubTotals();
+      unsubTrans();
+    };
+  }, [loading]);
+
+  // 3. Sync Teacher Daily usage
+  useEffect(() => {
+    if (!user) return;
+    const today = new Date().toISOString().split('T')[0];
+    const limitRef = doc(db, 'artifacts', appId, 'users', user.uid, 'limits', today);
+    
+    const unsubLimit = onSnapshot(limitRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setTeacherDailyTotal(docSnap.data().totalUsed || 0);
+      } else {
+        setTeacherDailyTotal(0);
+      }
+    });
+
+    return () => unsubLimit();
+  }, [user]);
+
+  const awardPoints = async (houseId, amount, reason) => {
+    if (!user) return;
+    const absAmount = Math.abs(amount);
+    
+    if (teacherDailyTotal + absAmount > DAILY_LIMIT) {
+      alert(`Point limit exceeded. Your remaining daily allowance is ${DAILY_LIMIT - teacherDailyTotal} points.`);
+      return;
+    }
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const batchDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', houseId);
+      const transDocRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
+      const limitDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'limits', today);
+
+      // Update House Total
+      await setDoc(batchDocRef, { points: increment(amount) }, { merge: true });
+
+      // Update Teacher Limit
+      await setDoc(limitDocRef, { totalUsed: increment(absAmount) }, { merge: true });
+
+      // Log Transaction
+      await addDoc(transDocRef, {
+        houseId,
+        amount,
+        reason: reason || "General achievement",
+        teacherId: user.uid,
+        teacherName: user.displayName || user.email || "Teacher",
+        timestamp: Timestamp.now()
+      });
+
+    } catch (err) {
+      console.error(err);
+      setError("Permission denied. Ensure your Firestore rules match the setup guide.");
+    }
+  };
+
+  const handleManualLogin = async () => {
+    setLoading(true);
+    try {
+      await signInAnonymously(auth);
+      setView('teacher');
+    } catch (err) {
+      setError("Login failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* Navigation Header */}
+      <nav className="bg-white border-b sticky top-0 z-10 px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-2">
+          <Trophy className="text-yellow-500 w-8 h-8" />
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+            SCIS House Points
+          </h1>
+        </div>
+        
+        <div className="flex gap-4 items-center">
+          <button 
+            onClick={() => setView('public')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${view === 'public' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            Leaderboard
+          </button>
+          
+          {user && !user.isAnonymous ? (
+             <div className="flex items-center gap-3">
+               <button 
+                 onClick={() => setView('teacher')}
+                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${view === 'teacher' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+               >
+                 Award Points
+               </button>
+               <button 
+                 onClick={() => { signOut(auth); setView('public'); }}
+                 className="p-2 text-slate-400 hover:text-red-500 transition"
+                 title="Logout"
+               >
+                 <LogOut size={20} />
+               </button>
+             </div>
+          ) : (
+            <button 
+              onClick={() => setView('login')}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+            >
+              Teacher Access
+            </button>
+          )}
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto p-4 md:p-8">
+        {error && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold">
+               <ShieldCheck size={20} /> System Status
+            </div>
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
+
+        {view === 'public' && <PublicDashboard houseTotals={houseTotals} transactions={transactions} />}
+        {view === 'teacher' && user && <TeacherPortal awardPoints={awardPoints} dailyTotal={teacherDailyTotal} />}
+        {view === 'login' && <LoginScreen onLogin={handleManualLogin} />}
+      </main>
+    </div>
+  );
+}
+
+// --- Sub-Components ---
+
+function PublicDashboard({ houseTotals, transactions }) {
+  const chartData = useMemo(() => {
+    return HOUSES.map(h => ({
+      name: h.name,
+      points: houseTotals[h.id] || 0,
+      color: h.color
+    })).sort((a, b) => b.points - a.points);
+  }, [houseTotals]);
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* High-Level Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {chartData.map((house) => (
+          <div key={house.name} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: `${house.color}15` }}>
+              <TrendingUp style={{ color: house.color }} />
+            </div>
+            <h3 className="text-slate-500 text-sm font-semibold uppercase tracking-wider">{house.name}</h3>
+            <p className="text-3xl font-bold mt-1" style={{ color: house.color }}>{house.points}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Visual Chart */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+              <Trophy className="text-yellow-500" />
+              House Standings
+            </h2>
+            <div className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full flex items-center gap-1 font-medium">
+              <Clock size={12} /> LIVE DATA
+            </div>
+          </div>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
+                <YAxis hide />
+                <Tooltip 
+                  cursor={{ fill: 'transparent' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Bar dataKey="points" radius={[8, 8, 0, 0]} barSize={55}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
+            <History className="text-slate-400" />
+            Activity
+          </h2>
+          <div className="space-y-4">
+            {transactions.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-slate-400 text-sm italic">No entries yet this session.</p>
+              </div>
+            ) : (
+              transactions.map((t) => {
+                const house = HOUSES.find(h => h.id === t.houseId);
+                return (
+                  <div key={t.id} className="flex items-start gap-3 pb-3 border-b border-slate-50 last:border-0">
+                    <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs" style={{ backgroundColor: `${house?.color}15`, color: house?.color }}>
+                      {house?.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-slate-700">
+                        {house?.name}: <span className={t.amount > 0 ? 'text-green-600' : 'text-red-600'}>
+                          {t.amount > 0 ? '+' : ''}{t.amount} pts
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-400 truncate mt-0.5">{t.reason}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeacherPortal({ awardPoints, dailyTotal }) {
+  const [selectedHouse, setSelectedHouse] = useState('centaurs');
+  const [points, setPoints] = useState(5);
+  const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const remaining = DAILY_LIMIT - dailyTotal;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (points === 0) return;
+    setIsSubmitting(true);
+    await awardPoints(selectedHouse, points, reason);
+    setReason('');
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Award Points</h2>
+            <p className="text-slate-500 text-sm mt-1">Submit points for student achievements.</p>
+          </div>
+          <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-2xl text-center border border-blue-100">
+            <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Daily Limit</p>
+            <p className="text-xl font-bold">{remaining} <span className="text-xs font-normal">left</span></p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold mb-3 text-slate-700">Select House</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {HOUSES.map((house) => (
+                <button
+                  key={house.id}
+                  type="button"
+                  onClick={() => setSelectedHouse(house.id)}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    selectedHouse === house.id 
+                      ? 'border-blue-600 bg-blue-50 shadow-sm' 
+                      : 'border-slate-50 hover:border-slate-200 bg-slate-50'
+                  }`}
+                >
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: house.color }} />
+                  <span className={`text-xs font-bold ${selectedHouse === house.id ? 'text-blue-700' : 'text-slate-600'}`}>
+                    {house.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-slate-700">Point Value</label>
+              <div className="flex items-center gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setPoints(p => p - 1)}
+                  className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  <MinusCircle size={20} className="text-slate-600" />
+                </button>
+                <input 
+                  type="number" 
+                  value={points} 
+                  onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
+                  className="w-full text-center text-xl font-bold bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 py-2"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setPoints(p => p + 1)}
+                  className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  <PlusCircle size={20} className="text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-slate-700">Reason</label>
+              <input 
+                type="text" 
+                placeholder="Ex: Outstanding Homework" 
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 py-2.5 px-4 text-slate-700"
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || Math.abs(points) > remaining || points === 0}
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+          >
+            {isSubmitting ? 'Processing...' : `Award ${points} Points`}
+          </button>
+          
+          {Math.abs(points) > remaining && (
+            <p className="text-center text-red-500 text-sm font-medium animate-pulse">
+              Warning: Selected points exceed your daily remaining limit.
+            </p>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen({ onLogin }) {
+  return (
+    <div className="max-w-md mx-auto py-12 animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100 text-center">
+        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 text-blue-600">
+          <ShieldCheck size={32} />
+        </div>
+        <h2 className="text-2xl font-bold mb-2 text-slate-800">Teacher Portal</h2>
+        <p className="text-slate-500 mb-8 leading-relaxed">Please authenticate to manage house points. Points are tracked per teacher account.</p>
+        
+        <button 
+          onClick={onLogin}
+          className="w-full bg-slate-900 text-white py-4 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-slate-800 transition active:scale-[0.98]"
+        >
+          <User size={18} /> Enter as Teacher
+        </button>
+        
+        <div className="mt-8 pt-6 border-t border-slate-50">
+          <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">
+            Security Policy
+          </p>
+          <p className="mt-2 text-[11px] text-slate-400">
+            Daily limit per teacher is currently 50 points. All actions are logged for the house captains and administrative review.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
