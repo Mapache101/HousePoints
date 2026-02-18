@@ -145,6 +145,7 @@
                         snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
                         setHouseTotals(totals);
                     }, (err) => {
+                        console.error("Firestore error:", err);
                         setErrorMsg("Firestore Permission Error. Check your Security Rules.");
                     });
 
