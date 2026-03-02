@@ -66,6 +66,7 @@
         ];
 
         const APP_ID = 'scis-house-points';
+        const ADMIN_EMAIL = 'dolguin@scis-bo.com';
 
         // --- Custom Robust Bar Chart Component ---
         function CustomBarChart({ data }) {
@@ -159,7 +160,12 @@
                             ) : (
                                 <>
                                     <button onClick={() => setView('teacher')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'teacher' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Rank Houses</button>
-                                    <button onClick={() => setView('admin')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'admin' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Admin</button>
+                                    
+                                    {/* Admin button only visible to the designated admin email */}
+                                    {user.email === ADMIN_EMAIL && (
+                                        <button onClick={() => setView('admin')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'admin' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Admin</button>
+                                    )}
+                                    
                                     <button onClick={handleLogout} className="text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50">Logout</button>
                                 </>
                             )}
@@ -172,7 +178,9 @@
                         {view === 'public' && <Dashboard houseTotals={houseTotals} />}
                         {view === 'login' && <Login />}
                         {view === 'teacher' && <Teacher user={user} />}
-                        {view === 'admin' && <Admin />}
+                        
+                        {/* Ensure the Admin component is only mounted if the logged in user matches the admin email */}
+                        {view === 'admin' && user?.email === ADMIN_EMAIL && <Admin />}
                     </main>
                 </div>
             );
