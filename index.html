@@ -73,21 +73,23 @@
             const maxPoints = Math.max(...data.map(d => d.points), 10); 
             
             return (
-                <div className="w-full h-full flex items-end justify-around pt-10 pb-2">
+                <div className="w-full h-64 sm:h-80 flex items-end justify-around pt-10 pb-4 border-b border-slate-100">
                     {data.map((house) => {
                         const heightPercent = (house.points / maxPoints) * 100;
                         return (
-                            <div key={house.name} className="flex flex-col items-center flex-1 group">
-                                <div className="relative w-full flex flex-col items-center">
+                            <div key={house.name} className="flex flex-col items-center justify-end h-full flex-1 group">
+                                <div className="w-full h-full flex flex-col justify-end items-center relative">
+                                    {/* Tooltip on hover */}
                                     <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-2 whitespace-nowrap z-10">
                                         {house.points} Points
                                     </div>
+                                    {/* The Bar */}
                                     <div 
-                                        className="w-12 md:w-16 rounded-t-lg shadow-sm bar-transition"
+                                        className="w-14 sm:w-20 rounded-t-xl shadow-md bar-transition"
                                         style={{ height: `${Math.max(heightPercent, 2)}%`, backgroundColor: house.color }}
                                     ></div>
                                 </div>
-                                <span className="mt-4 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">{house.name}</span>
+                                <span className="mt-4 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">{house.name}</span>
                             </div>
                         );
                     })}
@@ -198,11 +200,11 @@
                             </div>
                         ))}
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border shadow-sm min-h-[400px] flex flex-col">
-                        <h2 className="text-lg font-bold mb-4 text-slate-800">Current Standings</h2>
-                        <div className="flex-1 min-h-[300px]">
-                            <CustomBarChart data={data} />
-                        </div>
+                    
+                    {/* Updated Container with Flex layout for the Chart */}
+                    <div className="bg-white p-6 md:p-10 rounded-2xl border shadow-sm flex flex-col">
+                        <h2 className="text-xl font-bold mb-6 text-slate-800">Current Standings</h2>
+                        <CustomBarChart data={data} />
                     </div>
                 </div>
             );
