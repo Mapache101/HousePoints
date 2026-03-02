@@ -30,7 +30,7 @@
         console.log("Starting Firebase script...");
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, increment, query, where, getDocs, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
@@ -46,7 +46,7 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, where, getDocs, writeBatch, Timestamp, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, signInWithEmailAndPassword, signOut, onAuthStateChanged };
             console.log("Firebase successfully initialized");
         } catch (error) {
             console.error("Firebase Init Error:", error);
@@ -67,6 +67,13 @@
 
         const APP_ID = 'scis-house-points';
         const ADMIN_EMAIL = 'dolguin@scis-bo.com';
+
+        // Helper to format Firebase Timestamp
+        const formatDateTime = (timestamp) => {
+            if (!timestamp) return '';
+            const d = new Date(timestamp.seconds * 1000);
+            return d.toLocaleDateString() + ' at ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
 
         // --- Custom Robust Bar Chart Component ---
         function CustomBarChart({ data }) {
@@ -250,20 +257,39 @@
         }
 
         function Teacher({ user }) {
-            // Ranks now store an array of house IDs for each position
+            const [className, setClassName] = useState('');
             const [ranks, setRanks] = useState({ first: [], second: [], third: [], fourth: [] });
             const [loading, setLoading] = useState(false);
-            const [success, setSuccess] = useState(false);
+            const [success, setSuccess] = useState('');
+            const [myPending, setMyPending] = useState([]);
+            const [editingId, setEditingId] = useState(null);
+
+            useEffect(() => {
+                fetchMyPending();
+            }, []);
+
+            const fetchMyPending = async () => {
+                const { db, collection, query, where, getDocs } = window.FirebaseDB;
+                const q = query(
+                    collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), 
+                    where("teacherEmail", "==", user.email),
+                    where("processed", "==", false)
+                );
+                const snapshot = await getDocs(q);
+                const list = [];
+                snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                // Sort descending by timestamp
+                list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                setMyPending(list);
+            };
 
             const toggleHouse = (place, houseId) => {
                 setRanks(prev => {
                     const newRanks = { first: [...prev.first], second: [...prev.second], third: [...prev.third], fourth: [...prev.fourth] };
                     
-                    // If already selected in this place, toggle it off
                     if (newRanks[place].includes(houseId)) {
                         newRanks[place] = newRanks[place].filter(id => id !== houseId);
                     } else {
-                        // Ensure it's removed from any other place before adding to prevent duplicates
                         Object.keys(newRanks).forEach(p => {
                             newRanks[p] = newRanks[p].filter(id => id !== houseId);
                         });
@@ -273,69 +299,171 @@
                 });
             };
 
-            // Calculate if all 4 houses have been assigned somewhere
             const totalPlaced = Object.values(ranks).flat().length;
-            const isComplete = totalPlaced === HOUSES.length;
+            const isComplete = totalPlaced === HOUSES.length && className.trim() !== '';
 
             const submitRankings = async () => {
                 if (!isComplete) return;
                 setLoading(true);
                 try {
-                    const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
-                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), {
-                        teacherEmail: user.email,
-                        ranks: ranks,
-                        timestamp: Timestamp.now(),
-                        processed: false
-                    });
-                    setSuccess(true);
+                    const { db, collection, doc, addDoc, updateDoc, Timestamp } = window.FirebaseDB;
+                    
+                    if (editingId) {
+                        await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', editingId), {
+                            className,
+                            ranks,
+                            timestamp: Timestamp.now() 
+                        });
+                        setSuccess("Rankings updated successfully!");
+                    } else {
+                        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), {
+                            teacherEmail: user.email,
+                            className,
+                            ranks,
+                            timestamp: Timestamp.now(),
+                            processed: false
+                        });
+                        setSuccess("Rankings submitted successfully!");
+                    }
+                    
                     setRanks({ first: [], second: [], third: [], fourth: [] });
+                    setClassName('');
+                    setEditingId(null);
+                    fetchMyPending();
+                    setTimeout(() => setSuccess(''), 4000);
                 } catch (e) {
-                    alert("Error submitting rankings.");
+                    alert("Error saving rankings.");
                 }
                 setLoading(false);
             };
 
-            return (
-                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border shadow-xl">
-                    <h2 className="text-2xl font-bold mb-2">Submit House Rankings</h2>
-                    <p className="text-slate-500 text-sm mb-6">Assign houses to their final positions. You can select multiple houses per place in case of a tie.</p>
-                    
-                    {success && <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-6 font-medium">✅ Rankings submitted successfully!</div>}
+            const handleEdit = (submission) => {
+                setClassName(submission.className || '');
+                setRanks(submission.ranks);
+                setEditingId(submission.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
 
-                    <div className="space-y-6 mb-8">
-                        {['first', 'second', 'third', 'fourth'].map((place, index) => (
-                            <div key={place} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <span className="block text-sm font-bold text-slate-500 uppercase mb-3">{index + 1}{['st','nd','rd','th'][index]} Place</span>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {HOUSES.map(h => {
-                                        const isSelected = ranks[place].includes(h.id);
-                                        return (
-                                            <button 
-                                                key={h.id}
-                                                onClick={() => toggleHouse(place, h.id)}
-                                                className={`p-3 rounded-lg border-2 text-sm font-bold transition flex items-center justify-center gap-2
-                                                    ${isSelected ? 'border-blue-500 bg-blue-100 text-blue-800' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}
-                                            >
-                                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: h.color}}></div>
-                                                {h.name}
-                                            </button>
-                                        );
-                                    })}
+            const handleDelete = async (id) => {
+                if(!confirm("Are you sure you want to delete this pending submission?")) return;
+                try {
+                    const { db, doc, deleteDoc } = window.FirebaseDB;
+                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', id));
+                    fetchMyPending();
+                } catch(e) {
+                    alert("Error deleting submission.");
+                }
+            };
+
+            // Helper for visual badges
+            const renderVisualRanking = (rObj) => {
+                return (
+                    <div className="flex flex-col gap-1.5 mt-3">
+                        {['first', 'second', 'third', 'fourth'].map((place, i) => {
+                            const ids = rObj[place] || [];
+                            if (ids.length === 0) return null;
+                            return (
+                                <div key={place} className="flex items-center gap-2 text-xs">
+                                    <span className="w-6 font-bold text-slate-400 uppercase">{i+1}{['st','nd','rd','th'][i]}</span>
+                                    <div className="flex gap-1 flex-wrap">
+                                        {ids.map(id => {
+                                            const h = HOUSES.find(x => x.id === id);
+                                            return <span key={id} className="px-2 py-0.5 rounded text-white font-bold text-[10px]" style={{backgroundColor: h?.color}}>{h?.name}</span>;
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="space-y-8 max-w-2xl mx-auto">
+                    {/* Input Form */}
+                    <div className="bg-white p-8 rounded-3xl border shadow-xl transition-all">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-2xl font-bold">{editingId ? 'Edit Rankings' : 'Submit House Rankings'}</h2>
+                            {editingId && (
+                                <button onClick={() => { setEditingId(null); setClassName(''); setRanks({ first: [], second: [], third: [], fourth: [] }); }} className="text-sm font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>
+                            )}
+                        </div>
+                        <p className="text-slate-500 text-sm mb-6">Assign houses to their final positions for your class. You can select multiple houses per place in case of a tie.</p>
+                        
+                        {success && <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl mb-6 font-medium">✅ {success}</div>}
+
+                        <div className="mb-6">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Class Name / Activity (e.g., 3pA, Primary Art)</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={className} 
+                                onChange={e => setClassName(e.target.value)} 
+                                placeholder="Enter class name..."
+                                className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-blue-500 font-medium" 
+                            />
+                        </div>
+
+                        <div className="space-y-6 mb-8">
+                            {['first', 'second', 'third', 'fourth'].map((place, index) => (
+                                <div key={place} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <span className="block text-sm font-bold text-slate-500 uppercase mb-3">{index + 1}{['st','nd','rd','th'][index]} Place</span>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {HOUSES.map(h => {
+                                            const isSelected = ranks[place].includes(h.id);
+                                            return (
+                                                <button 
+                                                    key={h.id}
+                                                    onClick={() => toggleHouse(place, h.id)}
+                                                    className={`p-3 rounded-lg border-2 text-sm font-bold transition flex items-center justify-center gap-2
+                                                        ${isSelected ? 'border-blue-500 bg-blue-100 text-blue-800' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}
+                                                >
+                                                    <div className="w-3 h-3 rounded-full" style={{backgroundColor: h.color}}></div>
+                                                    {h.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {!isComplete && <p className="text-red-500 text-sm mb-4 font-medium text-center">⚠️ Please provide a Class Name and place all 4 houses before submitting.</p>}
+
+                        <button 
+                            onClick={submitRankings} 
+                            disabled={loading || !isComplete} 
+                            className={`w-full text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50 transition-colors ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}
+                        >
+                            {loading ? "Saving..." : (editingId ? "Update Rankings" : "Submit Rankings")}
+                        </button>
                     </div>
 
-                    {!isComplete && <p className="text-red-500 text-sm mb-4 font-medium text-center">⚠️ Please place all 4 houses before submitting.</p>}
-
-                    <button 
-                        onClick={submitRankings} 
-                        disabled={loading || !isComplete} 
-                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50"
-                    >
-                        {loading ? "Submitting..." : "Submit Rankings"}
-                    </button>
+                    {/* Pending Submissions List */}
+                    {myPending.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl border shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4">My Pending Submissions</h3>
+                            <p className="text-slate-500 text-xs mb-4">These points have not yet been collected by the admin. You can edit or delete them.</p>
+                            
+                            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                                {myPending.map(sub => (
+                                    <div key={sub.id} className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col md:flex-row justify-between gap-4">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-slate-700">{sub.className}</span>
+                                                <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border">{formatDateTime(sub.timestamp)}</span>
+                                            </div>
+                                            {renderVisualRanking(sub.ranks)}
+                                        </div>
+                                        <div className="flex md:flex-col gap-2 justify-end">
+                                            <button onClick={() => handleEdit(sub)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:border-blue-500 hover:text-blue-600 transition">Edit</button>
+                                            <button onClick={() => handleDelete(sub.id)} className="px-3 py-1.5 bg-white border border-red-100 text-red-500 text-xs font-bold rounded-lg hover:bg-red-50 transition">Delete</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -354,6 +482,8 @@
                 const snapshot = await getDocs(q);
                 const list = [];
                 snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                // Sort by time, oldest first (so they are processed in order)
+                list.sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
                 setPendingRankings(list);
             };
 
@@ -369,7 +499,6 @@
                     const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
                     const totalTally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
 
-                    // Calculate totals from pending rankings (handling arrays)
                     pendingRankings.forEach(submission => {
                         (submission.ranks.first || []).forEach(hId => totalTally[hId] += pointsMap.first);
                         (submission.ranks.second || []).forEach(hId => totalTally[hId] += pointsMap.second);
@@ -380,7 +509,6 @@
                         batch.update(rankRef, { processed: true });
                     });
 
-                    // Add to house totals
                     HOUSES.forEach(h => {
                         if (totalTally[h.id] > 0) {
                             const houseRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', h.id);
@@ -423,10 +551,10 @@
             return (
                 <div className="max-w-4xl mx-auto space-y-6">
                     <div className="bg-white p-8 rounded-3xl border shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex justify-between items-start mb-6">
                             <div>
-                                <h2 className="text-2xl font-bold">Admin Dashboard</h2>
-                                <p className="text-slate-500 text-sm">Manage submissions and total points.</p>
+                                <h2 className="text-2xl font-bold text-slate-800">Admin Dashboard</h2>
+                                <p className="text-slate-500 text-sm mt-1">Points are collected once a month by the admin (Mr. Daniel Olguin).</p>
                             </div>
                             <button onClick={resetAllPoints} className="border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50">
                                 Reset All Points to 0
@@ -442,11 +570,18 @@
                             {pendingRankings.length === 0 ? (
                                 <p className="text-slate-400 text-sm italic py-4">No pending rankings to process.</p>
                             ) : (
-                                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
+                                <div className="space-y-4 mb-6 max-h-96 overflow-y-auto pr-2">
                                     {pendingRankings.map(r => (
-                                        <div key={r.id} className="bg-white p-4 rounded-xl border text-sm flex flex-col md:flex-row justify-between md:items-center gap-3">
-                                            <span className="font-bold text-slate-700">{r.teacherEmail}</span>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+                                        <div key={r.id} className="bg-white p-4 rounded-xl border flex flex-col gap-2">
+                                            <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-slate-700 text-sm">{r.teacherEmail}</span>
+                                                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{r.className}</span>
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 font-medium">{formatDateTime(r.timestamp)}</span>
+                                            </div>
+                                            
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs pt-1">
                                                 {r.ranks.first?.length > 0 && <span className="text-yellow-600"><strong className="uppercase">1st:</strong> {getHouseNames(r.ranks.first)}</span>}
                                                 {r.ranks.second?.length > 0 && <span className="text-slate-600"><strong className="uppercase">2nd:</strong> {getHouseNames(r.ranks.second)}</span>}
                                                 {r.ranks.third?.length > 0 && <span className="text-amber-700"><strong className="uppercase">3rd:</strong> {getHouseNames(r.ranks.third)}</span>}
