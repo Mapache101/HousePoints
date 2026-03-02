@@ -1,3 +1,10 @@
+To handle ties, the best approach is to replace the standard dropdown menus with a grid of toggle buttons. This allows a teacher to easily click multiple houses for the same place.
+
+I have updated the `Teacher` component so that selecting a house automatically removes it from other positions, preventing a house from being in 1st and 2nd place simultaneously. I have also updated the `Admin` component to properly calculate the array of tied houses and display them correctly.
+
+Here is the complete, updated `index.html` file:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,11 +86,9 @@
                         return (
                             <div key={house.name} className="flex flex-col items-center justify-end h-full flex-1 group">
                                 <div className="w-full h-full flex flex-col justify-end items-center relative">
-                                    {/* Tooltip on hover */}
                                     <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-2 whitespace-nowrap z-10">
                                         {house.points} Points
                                     </div>
-                                    {/* The Bar */}
                                     <div 
                                         className="w-14 sm:w-20 rounded-t-xl shadow-md bar-transition"
                                         style={{ height: `${Math.max(heightPercent, 2)}%`, backgroundColor: house.color }}
@@ -163,7 +168,6 @@
                                 <>
                                     <button onClick={() => setView('teacher')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'teacher' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Rank Houses</button>
                                     
-                                    {/* Admin button only visible to the designated admin email */}
                                     {user.email === ADMIN_EMAIL && (
                                         <button onClick={() => setView('admin')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'admin' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Admin</button>
                                     )}
@@ -180,8 +184,6 @@
                         {view === 'public' && <Dashboard houseTotals={houseTotals} />}
                         {view === 'login' && <Login />}
                         {view === 'teacher' && <Teacher user={user} />}
-                        
-                        {/* Ensure the Admin component is only mounted if the logged in user matches the admin email */}
                         {view === 'admin' && user?.email === ADMIN_EMAIL && <Admin />}
                     </main>
                 </div>
@@ -201,7 +203,6 @@
                         ))}
                     </div>
                     
-                    {/* Updated Container with Flex layout for the Chart */}
                     <div className="bg-white p-6 md:p-10 rounded-2xl border shadow-sm flex flex-col">
                         <h2 className="text-xl font-bold mb-6 text-slate-800">Current Standings</h2>
                         <CustomBarChart data={data} />
@@ -256,15 +257,35 @@
         }
 
         function Teacher({ user }) {
-            const [ranks, setRanks] = useState({ first: '', second: '', third: '', fourth: '' });
+            // Ranks now store an array of house IDs for each position
+            const [ranks, setRanks] = useState({ first: [], second: [], third: [], fourth: [] });
             const [loading, setLoading] = useState(false);
             const [success, setSuccess] = useState(false);
 
-            const isComplete = ranks.first && ranks.second && ranks.third && ranks.fourth;
-            const hasDuplicates = new Set(Object.values(ranks).filter(Boolean)).size !== Object.values(ranks).filter(Boolean).length;
+            const toggleHouse = (place, houseId) => {
+                setRanks(prev => {
+                    const newRanks = { first: [...prev.first], second: [...prev.second], third: [...prev.third], fourth: [...prev.fourth] };
+                    
+                    // If already selected in this place, toggle it off
+                    if (newRanks[place].includes(houseId)) {
+                        newRanks[place] = newRanks[place].filter(id => id !== houseId);
+                    } else {
+                        // Ensure it's removed from any other place before adding to prevent duplicates
+                        Object.keys(newRanks).forEach(p => {
+                            newRanks[p] = newRanks[p].filter(id => id !== houseId);
+                        });
+                        newRanks[place].push(houseId);
+                    }
+                    return newRanks;
+                });
+            };
+
+            // Calculate if all 4 houses have been assigned somewhere
+            const totalPlaced = Object.values(ranks).flat().length;
+            const isComplete = totalPlaced === HOUSES.length;
 
             const submitRankings = async () => {
-                if (!isComplete || hasDuplicates) return;
+                if (!isComplete) return;
                 setLoading(true);
                 try {
                     const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
@@ -275,7 +296,7 @@
                         processed: false
                     });
                     setSuccess(true);
-                    setRanks({ first: '', second: '', third: '', fourth: '' });
+                    setRanks({ first: [], second: [], third: [], fourth: [] });
                 } catch (e) {
                     alert("Error submitting rankings.");
                 }
@@ -283,33 +304,41 @@
             };
 
             return (
-                <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border shadow-xl">
+                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border shadow-xl">
                     <h2 className="text-2xl font-bold mb-2">Submit House Rankings</h2>
-                    <p className="text-slate-500 text-sm mb-6">Assign 1st through 4th place. Your rankings will be tallied monthly by the admin.</p>
+                    <p className="text-slate-500 text-sm mb-6">Assign houses to their final positions. You can select multiple houses per place in case of a tie.</p>
                     
                     {success && <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-6 font-medium">✅ Rankings submitted successfully!</div>}
 
-                    <div className="space-y-4 mb-8">
+                    <div className="space-y-6 mb-8">
                         {['first', 'second', 'third', 'fourth'].map((place, index) => (
-                            <div key={place} className="flex items-center gap-4">
-                                <span className="w-20 text-sm font-bold text-slate-400 uppercase">{index + 1}{['st','nd','rd','th'][index]} Place</span>
-                                <select 
-                                    value={ranks[place]} 
-                                    onChange={(e) => setRanks({...ranks, [place]: e.target.value})}
-                                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium focus:border-blue-500"
-                                >
-                                    <option value="" disabled>Select House...</option>
-                                    {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-                                </select>
+                            <div key={place} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <span className="block text-sm font-bold text-slate-500 uppercase mb-3">{index + 1}{['st','nd','rd','th'][index]} Place</span>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    {HOUSES.map(h => {
+                                        const isSelected = ranks[place].includes(h.id);
+                                        return (
+                                            <button 
+                                                key={h.id}
+                                                onClick={() => toggleHouse(place, h.id)}
+                                                className={`p-3 rounded-lg border-2 text-sm font-bold transition flex items-center justify-center gap-2
+                                                    ${isSelected ? 'border-blue-500 bg-blue-100 text-blue-800' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}
+                                            >
+                                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: h.color}}></div>
+                                                {h.name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         ))}
                     </div>
 
-                    {hasDuplicates && <p className="text-red-500 text-sm mb-4 font-medium">⚠️ Each house can only be selected once.</p>}
+                    {!isComplete && <p className="text-red-500 text-sm mb-4 font-medium text-center">⚠️ Please place all 4 houses before submitting.</p>}
 
                     <button 
                         onClick={submitRankings} 
-                        disabled={loading || !isComplete || hasDuplicates} 
+                        disabled={loading || !isComplete} 
                         className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50"
                     >
                         {loading ? "Submitting..." : "Submit Rankings"}
@@ -344,18 +373,16 @@
                     const { db, doc, writeBatch, increment } = window.FirebaseDB;
                     const batch = writeBatch(db);
 
-                    // Define Points Here - Updated
                     const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
                     const totalTally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
 
-                    // Calculate totals from pending rankings
+                    // Calculate totals from pending rankings (handling arrays)
                     pendingRankings.forEach(submission => {
-                        totalTally[submission.ranks.first] += pointsMap.first;
-                        totalTally[submission.ranks.second] += pointsMap.second;
-                        totalTally[submission.ranks.third] += pointsMap.third;
-                        totalTally[submission.ranks.fourth] += pointsMap.fourth;
+                        (submission.ranks.first || []).forEach(hId => totalTally[hId] += pointsMap.first);
+                        (submission.ranks.second || []).forEach(hId => totalTally[hId] += pointsMap.second);
+                        (submission.ranks.third || []).forEach(hId => totalTally[hId] += pointsMap.third);
+                        (submission.ranks.fourth || []).forEach(hId => totalTally[hId] += pointsMap.fourth);
                         
-                        // Mark as processed
                         const rankRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', submission.id);
                         batch.update(rankRef, { processed: true });
                     });
@@ -395,6 +422,11 @@
                 }
             };
 
+            const getHouseNames = (idsArray) => {
+                if (!idsArray || idsArray.length === 0) return 'None';
+                return idsArray.map(id => HOUSES.find(h => h.id === id)?.name).join(', ');
+            };
+
             return (
                 <div className="max-w-4xl mx-auto space-y-6">
                     <div className="bg-white p-8 rounded-3xl border shadow-sm">
@@ -417,14 +449,15 @@
                             {pendingRankings.length === 0 ? (
                                 <p className="text-slate-400 text-sm italic py-4">No pending rankings to process.</p>
                             ) : (
-                                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
                                     {pendingRankings.map(r => (
-                                        <div key={r.id} className="bg-white p-3 rounded-lg border text-sm flex justify-between items-center">
-                                            <span className="font-medium text-slate-700">{r.teacherEmail}</span>
-                                            <div className="flex gap-3 text-xs">
-                                                <span className="text-yellow-600 font-bold">1st: {HOUSES.find(h=>h.id===r.ranks.first)?.name}</span>
-                                                <span className="text-slate-400">|</span>
-                                                <span className="text-slate-500 font-medium">2nd: {HOUSES.find(h=>h.id===r.ranks.second)?.name}</span>
+                                        <div key={r.id} className="bg-white p-4 rounded-xl border text-sm flex flex-col md:flex-row justify-between md:items-center gap-3">
+                                            <span className="font-bold text-slate-700">{r.teacherEmail}</span>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+                                                {r.ranks.first?.length > 0 && <span className="text-yellow-600"><strong className="uppercase">1st:</strong> {getHouseNames(r.ranks.first)}</span>}
+                                                {r.ranks.second?.length > 0 && <span className="text-slate-600"><strong className="uppercase">2nd:</strong> {getHouseNames(r.ranks.second)}</span>}
+                                                {r.ranks.third?.length > 0 && <span className="text-amber-700"><strong className="uppercase">3rd:</strong> {getHouseNames(r.ranks.third)}</span>}
+                                                {r.ranks.fourth?.length > 0 && <span className="text-slate-400"><strong className="uppercase">4th:</strong> {getHouseNames(r.ranks.fourth)}</span>}
                                             </div>
                                         </div>
                                     ))}
@@ -434,7 +467,7 @@
                             <button 
                                 onClick={processMonthlyPoints} 
                                 disabled={processing || pendingRankings.length === 0}
-                                className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold disabled:opacity-50"
+                                className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition disabled:opacity-50"
                             >
                                 {processing ? "Processing..." : "Tally Monthly Points"}
                             </button>
@@ -449,3 +482,5 @@
     </script>
 </body>
 </html>
+
+```
