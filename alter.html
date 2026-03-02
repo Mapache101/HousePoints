@@ -154,6 +154,44 @@
             );
         }
 
+        // New Component for visually displaying pending ranks
+        function SimpleStanding({ ranks }) {
+            const places = [
+                { key: 'first', label: '1ST Place', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
+                { key: 'second', label: '2ND Place', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-600' },
+                { key: 'third', label: '3RD Place', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-amber-700' },
+                { key: 'fourth', label: '4TH Place', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-500' }
+            ];
+
+            return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                    {places.map((p) => {
+                        const houseIds = ranks[p.key] || [];
+                        return (
+                            <div key={p.key} className={`p-4 rounded-2xl border-2 ${p.border} ${p.bg} flex flex-col items-center justify-center text-center min-h-[110px]`}>
+                                <span className={`text-[11px] font-black uppercase tracking-widest mb-3 ${p.text}`}>{p.label}</span>
+                                {houseIds.length > 0 ? (
+                                    <div className="flex flex-wrap justify-center gap-3">
+                                        {houseIds.map(id => {
+                                            const h = HOUSES.find(x => x.id === id);
+                                            return (
+                                                <div key={id} className="flex flex-col items-center">
+                                                    <span className="text-3xl md:text-4xl drop-shadow-sm mb-1">{h.icon}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: h.color }}>{h.name}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="text-2xl font-bold opacity-20">-</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
         function App() {
             const [user, setUser] = useState(null);
             const [view, setView] = useState('public');
@@ -197,7 +235,7 @@
                 setView('public');
             };
 
-            if (loading) return null; // handled by initial static HTML loader
+            if (loading) return null;
 
             return (
                 <div className="min-h-screen pb-12">
@@ -424,47 +462,34 @@
                 }
             };
 
-            const getSubmissionPointsData = (rObj) => {
-                const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
-                const tally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
-                ['first', 'second', 'third', 'fourth'].forEach(place => {
-                    (rObj[place] || []).forEach(hId => tally[hId] += pointsMap[place]);
-                });
-                return HOUSES.map(h => ({ name: h.name, points: tally[h.id], color: h.color, icon: h.icon }));
-            };
-
             return (
-                <div className="space-y-8 max-w-3xl mx-auto animate-in fade-in">
+                <div className="space-y-8 max-w-4xl mx-auto animate-in fade-in">
                     
                     {myPending.length > 0 && (
                         <div className="bg-white p-6 md:p-8 rounded-3xl border-2 border-slate-100 border-b-8 border-b-slate-200 shadow-sm">
                             <h3 className="text-xl font-display font-black text-scis-navy mb-2 uppercase flex items-center gap-2"><span className="text-2xl">⏳</span> Pending Points</h3>
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6">Awaiting Mr. Olguin's approval</p>
                             
-                            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
-                                {myPending.map(sub => {
-                                    const submissionData = getSubmissionPointsData(sub.ranks);
-                                    return (
-                                        <div key={sub.id} className="bg-slate-50 border-2 border-slate-200 p-5 rounded-2xl flex flex-col gap-4">
-                                            <div className="flex flex-col md:flex-row justify-between gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-3">
-                                                        <span className="font-display font-black text-lg text-scis-navy uppercase">{sub.className}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border shadow-sm uppercase">{formatDateTime(sub.timestamp)}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex md:flex-col gap-2 justify-end">
-                                                    <button onClick={() => handleEdit(sub)} className="btn-game px-4 py-2 bg-white border-2 border-b-4 border-slate-200 text-slate-600 text-xs font-black uppercase rounded-xl hover:border-blue-500 hover:text-blue-600">Edit</button>
-                                                    <button onClick={() => handleDelete(sub.id)} className="btn-game px-4 py-2 bg-white border-2 border-b-4 border-red-200 text-red-500 text-xs font-black uppercase rounded-xl hover:bg-red-50 hover:border-red-300">Delete</button>
+                            <div className="space-y-6 max-h-[800px] overflow-y-auto pr-2">
+                                {myPending.map(sub => (
+                                    <div key={sub.id} className="bg-slate-50 border-2 border-slate-200 p-5 rounded-3xl flex flex-col gap-4">
+                                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b-2 border-slate-200 pb-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-display font-black text-2xl text-scis-navy uppercase">{sub.className}</span>
+                                                    <span className="text-[10px] font-bold text-slate-500 bg-white px-3 py-1.5 rounded-full border shadow-sm uppercase tracking-wider">{formatDateTime(sub.timestamp)}</span>
                                                 </div>
                                             </div>
-
-                                            <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm">
-                                                <CustomBarChart data={submissionData} heightClass="h-28" />
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={() => handleEdit(sub)} className="btn-game px-4 py-2 bg-white border-2 border-b-4 border-slate-200 text-slate-600 text-xs font-black uppercase rounded-xl hover:border-blue-500 hover:text-blue-600">Edit</button>
+                                                <button onClick={() => handleDelete(sub.id)} className="btn-game px-4 py-2 bg-white border-2 border-b-4 border-red-200 text-red-500 text-xs font-black uppercase rounded-xl hover:bg-red-50 hover:border-red-300">Delete</button>
                                             </div>
                                         </div>
-                                    );
-                                })}
+
+                                        {/* Simple Standing Display per Submission */}
+                                        <SimpleStanding ranks={sub.ranks} />
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -546,7 +571,7 @@
                             disabled={loading || !isComplete} 
                             className={`w-full text-white py-5 rounded-2xl font-display font-black text-xl tracking-widest uppercase shadow-xl border-2 border-b-8 transition-colors btn-game ${editingId ? 'bg-amber-500 hover:bg-amber-600 border-amber-700' : 'bg-blue-600 hover:bg-blue-700 border-[#1e3a8a]'}`}
                         >
-                            {loading ? "Processing..." : (editingId ? "Update Results 🛡️" : "Submit Results 🛡️")}
+                            {loading ? "Processing..." : (editingId ? "Update Results" : "Submit Results")}
                         </button>
                     </div>
 
