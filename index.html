@@ -76,11 +76,11 @@
         };
 
         // --- Custom Robust Bar Chart Component ---
-        function CustomBarChart({ data }) {
+        function CustomBarChart({ data, heightClass = "h-64 sm:h-80" }) {
             const maxPoints = Math.max(...data.map(d => d.points), 10); 
             
             return (
-                <div className="w-full h-64 sm:h-80 flex items-end justify-around pt-10 pb-4 border-b border-slate-100">
+                <div className={`w-full ${heightClass} flex items-end justify-around pt-10 pb-4 border-b border-slate-100`}>
                     {data.map((house) => {
                         const heightPercent = (house.points / maxPoints) * 100;
                         return (
@@ -90,7 +90,7 @@
                                         {house.points} Points
                                     </div>
                                     <div 
-                                        className="w-14 sm:w-20 rounded-t-xl shadow-md bar-transition"
+                                        className="w-10 sm:w-16 rounded-t-xl shadow-md bar-transition"
                                         style={{ height: `${Math.max(heightPercent, 2)}%`, backgroundColor: house.color }}
                                     ></div>
                                 </div>
@@ -378,9 +378,57 @@
                 );
             };
 
+            // Calculate points solely for a specific submission visualization
+            const getSubmissionPointsData = (rObj) => {
+                const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
+                const tally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
+                ['first', 'second', 'third', 'fourth'].forEach(place => {
+                    (rObj[place] || []).forEach(hId => tally[hId] += pointsMap[place]);
+                });
+                return HOUSES.map(h => ({ name: h.name, points: tally[h.id], color: h.color }));
+            };
+
             return (
                 <div className="space-y-8 max-w-2xl mx-auto">
-                    {/* Input Form */}
+                    
+                    {/* Pending Submissions List - MOVED TO TOP */}
+                    {myPending.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl border shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4">My Pending Submissions</h3>
+                            <p className="text-slate-500 text-xs mb-4">These points have not yet been collected by the admin. You can edit or delete them.</p>
+                            
+                            <div className="space-y-6 max-h-[700px] overflow-y-auto pr-2">
+                                {myPending.map(sub => {
+                                    const submissionData = getSubmissionPointsData(sub.ranks);
+                                    return (
+                                        <div key={sub.id} className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col gap-4">
+                                            <div className="flex flex-col md:flex-row justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-bold text-slate-700">{sub.className}</span>
+                                                        <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border">{formatDateTime(sub.timestamp)}</span>
+                                                    </div>
+                                                    {renderVisualRanking(sub.ranks)}
+                                                </div>
+                                                <div className="flex md:flex-col gap-2 justify-end">
+                                                    <button onClick={() => handleEdit(sub)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:border-blue-500 hover:text-blue-600 transition">Edit</button>
+                                                    <button onClick={() => handleDelete(sub.id)} className="px-3 py-1.5 bg-white border border-red-100 text-red-500 text-xs font-bold rounded-lg hover:bg-red-50 transition">Delete</button>
+                                                </div>
+                                            </div>
+
+                                            {/* Sub-visualization for this specific submission */}
+                                            <div className="bg-white p-4 rounded-xl border border-slate-100 mt-2">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Points Breakdown</p>
+                                                <CustomBarChart data={submissionData} heightClass="h-32" />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Input Form - MOVED TO BOTTOM */}
                     <div className="bg-white p-8 rounded-3xl border shadow-xl transition-all">
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-2xl font-bold">{editingId ? 'Edit Rankings' : 'Submit House Rankings'}</h2>
@@ -439,31 +487,6 @@
                         </button>
                     </div>
 
-                    {/* Pending Submissions List */}
-                    {myPending.length > 0 && (
-                        <div className="bg-white p-6 rounded-3xl border shadow-sm">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4">My Pending Submissions</h3>
-                            <p className="text-slate-500 text-xs mb-4">These points have not yet been collected by the admin. You can edit or delete them.</p>
-                            
-                            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                {myPending.map(sub => (
-                                    <div key={sub.id} className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col md:flex-row justify-between gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-bold text-slate-700">{sub.className}</span>
-                                                <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border">{formatDateTime(sub.timestamp)}</span>
-                                            </div>
-                                            {renderVisualRanking(sub.ranks)}
-                                        </div>
-                                        <div className="flex md:flex-col gap-2 justify-end">
-                                            <button onClick={() => handleEdit(sub)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:border-blue-500 hover:text-blue-600 transition">Edit</button>
-                                            <button onClick={() => handleDelete(sub.id)} className="px-3 py-1.5 bg-white border border-red-100 text-red-500 text-xs font-bold rounded-lg hover:bg-red-50 transition">Delete</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
