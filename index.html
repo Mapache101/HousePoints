@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCIS House Points</title>
-    <!-- Styling & Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -19,7 +18,6 @@
 </head>
 <body>
     <div id="root">
-        <!-- Initial Loading State -->
         <div class="flex h-screen items-center justify-center text-slate-400">
             <div class="text-center">
                 <div id="loader-icon" class="mb-4 inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full loading-spin"></div>
@@ -28,12 +26,11 @@
         </div>
     </div>
 
-    <!-- 1. FIREBASE INITIALIZATION -->
     <script type="module">
         console.log("Starting Firebase script...");
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, increment, query, where, getDocs, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
@@ -49,7 +46,7 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, Timestamp, signInAnonymously, signOut, onAuthStateChanged };
+            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, increment, query, where, getDocs, writeBatch, Timestamp, signInWithEmailAndPassword, signOut, onAuthStateChanged };
             console.log("Firebase successfully initialized");
         } catch (error) {
             console.error("Firebase Init Error:", error);
@@ -58,23 +55,21 @@
         }
     </script>
 
-    <!-- 2. REACT INTERFACE (JSX) -->
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect } = React;
 
         const HOUSES = [
-            { id: 'centaurs', name: 'Centaurs', color: '#3b82f6' }, // Blue
-            { id: 'pegasus', name: 'Pegasus', color: '#22c55e' },   // Green
-            { id: 'titans', name: 'Titans', color: '#eab308' },    // Yellow
-            { id: 'unicorns', name: 'Unicorns', color: '#ef4444' }  // Red
+            { id: 'centaurs', name: 'Centaurs', color: '#3b82f6' }, 
+            { id: 'pegasus', name: 'Pegasus', color: '#22c55e' },   
+            { id: 'titans', name: 'Titans', color: '#eab308' },    
+            { id: 'unicorns', name: 'Unicorns', color: '#ef4444' }  
         ];
 
-        const DAILY_LIMIT = 50;
         const APP_ID = 'scis-house-points';
 
         // --- Custom Robust Bar Chart Component ---
         function CustomBarChart({ data }) {
-            const maxPoints = Math.max(...data.map(d => d.points), 10); // Min scale of 10
+            const maxPoints = Math.max(...data.map(d => d.points), 10); 
             
             return (
                 <div className="w-full h-full flex items-end justify-around pt-10 pb-2">
@@ -83,17 +78,12 @@
                         return (
                             <div key={house.name} className="flex flex-col items-center flex-1 group">
                                 <div className="relative w-full flex flex-col items-center">
-                                    {/* Tooltip on hover */}
                                     <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-2 whitespace-nowrap z-10">
                                         {house.points} Points
                                     </div>
-                                    {/* The Bar */}
                                     <div 
                                         className="w-12 md:w-16 rounded-t-lg shadow-sm bar-transition"
-                                        style={{ 
-                                            height: `${Math.max(heightPercent, 2)}%`, 
-                                            backgroundColor: house.color 
-                                        }}
+                                        style={{ height: `${Math.max(heightPercent, 2)}%`, backgroundColor: house.color }}
                                     ></div>
                                 </div>
                                 <span className="mt-4 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">{house.name}</span>
@@ -108,19 +98,10 @@
             const [user, setUser] = useState(null);
             const [view, setView] = useState('public');
             const [houseTotals, setHouseTotals] = useState({});
-            const [transactions, setTransactions] = useState([]);
-            const [dailyUsed, setDailyUsed] = useState(0);
             const [loading, setLoading] = useState(true);
             const [errorMsg, setErrorMsg] = useState(null);
 
             useEffect(() => {
-                const timeout = setTimeout(() => {
-                    if (loading) {
-                        setErrorMsg("Database connection timeout. Please check Phase 7 of the setup guide.");
-                        setLoading(false);
-                    }
-                }, 10000);
-
                 const checkFirebase = setInterval(() => {
                     if (window.FirebaseDB) {
                         clearInterval(checkFirebase);
@@ -133,60 +114,25 @@
 
                     onAuthStateChanged(auth, (u) => {
                         setUser(u);
+                        if (u && view === 'login') setView('teacher');
                         setLoading(false);
-                    }, (err) => setLoading(false));
+                    }, () => setLoading(false));
 
                     const totalsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals');
                     onSnapshot(query(totalsRef), (snapshot) => {
                         const totals = {};
-                        if (snapshot.empty) {
-                            setErrorMsg("No house data found. Please create the 'houseTotals' collection in Firestore.");
-                        }
                         snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
                         setHouseTotals(totals);
                     }, (err) => {
                         console.error("Firestore error:", err);
                         setErrorMsg("Firestore Permission Error. Check your Security Rules.");
                     });
-
-                    const transRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions');
-                    onSnapshot(query(transRef), (snapshot) => {
-                        const list = [];
-                        snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                        setTransactions(list.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).slice(0, 10));
-                    });
                 }
-
-                return () => clearTimeout(timeout);
             }, []);
 
-            useEffect(() => {
-                if (!user || !window.FirebaseDB) return;
-                const { db, doc, onSnapshot } = window.FirebaseDB;
-                const today = new Date().toISOString().split('T')[0];
-                const limitRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'limits', today);
-                
-                return onSnapshot(limitRef, (docSnap) => {
-                    setDailyUsed(docSnap.exists() ? docSnap.data().totalUsed || 0 : 0);
-                });
-            }, [user]);
-
-            const awardPoints = async (houseId, amount, reason) => {
-                if (dailyUsed + Math.abs(amount) > DAILY_LIMIT) {
-                    alert("Daily limit reached.");
-                    return;
-                }
-                const { db, doc, collection, setDoc, addDoc, increment, Timestamp } = window.FirebaseDB;
-                const today = new Date().toISOString().split('T')[0];
-
-                try {
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', houseId), { points: increment(amount) }, { merge: true });
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'limits', today), { totalUsed: increment(Math.abs(amount)) }, { merge: true });
-                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                        houseId, amount, reason, timestamp: Timestamp.now(), teacherId: user.uid
-                    });
-                    setView('public');
-                } catch (e) { alert("Error: Verify your Firestore Rules."); }
+            const handleLogout = () => {
+                window.FirebaseDB.signOut(window.FirebaseDB.auth);
+                setView('public');
             };
 
             if (loading) return (
@@ -207,29 +153,32 @@
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => setView('public')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'public' ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-50'}`}>Board</button>
-                            {user && !user.isAnonymous ? (
-                                <button onClick={() => setView('teacher')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'teacher' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Award</button>
+                            
+                            {!user ? (
+                                <button onClick={() => setView('login')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Teacher Login</button>
                             ) : (
-                                <button onClick={() => setView('login')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Teacher Access</button>
+                                <>
+                                    <button onClick={() => setView('teacher')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'teacher' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Rank Houses</button>
+                                    <button onClick={() => setView('admin')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${view === 'admin' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>Admin</button>
+                                    <button onClick={handleLogout} className="text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50">Logout</button>
+                                </>
                             )}
                         </div>
                     </nav>
 
                     <main className="max-w-6xl mx-auto p-4 md:p-8">
-                        {errorMsg && (
-                            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-medium">
-                                ⚠️ {errorMsg}
-                            </div>
-                        )}
-                        {view === 'public' && <Dashboard houseTotals={houseTotals} transactions={transactions} />}
-                        {view === 'login' && <Login onLogin={() => window.FirebaseDB.signInAnonymously(window.FirebaseDB.auth).then(() => setView('teacher'))} />}
-                        {view === 'teacher' && <Teacher awardPoints={awardPoints} remaining={DAILY_LIMIT - dailyUsed} />}
+                        {errorMsg && <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-medium">⚠️ {errorMsg}</div>}
+                        
+                        {view === 'public' && <Dashboard houseTotals={houseTotals} />}
+                        {view === 'login' && <Login />}
+                        {view === 'teacher' && <Teacher user={user} />}
+                        {view === 'admin' && <Admin />}
                     </main>
                 </div>
             );
         }
 
-        function Dashboard({ houseTotals, transactions }) {
+        function Dashboard({ houseTotals }) {
             const data = HOUSES.map(h => ({ name: h.name, points: houseTotals[h.id] || 0, color: h.color })).sort((a,b) => b.points - a.points);
             return (
                 <div className="space-y-8 animate-in">
@@ -241,86 +190,245 @@
                             </div>
                         ))}
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border shadow-sm min-h-[400px] flex flex-col">
-                            <h2 className="text-lg font-bold mb-4 text-slate-800">Current Standings</h2>
-                            <div className="flex-1 min-h-[300px]">
-                                <CustomBarChart data={data} />
-                            </div>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border shadow-sm">
-                            <h2 className="text-lg font-bold mb-4 text-slate-800">Recent Activity</h2>
-                            <div className="space-y-4">
-                                {transactions.length === 0 ? <p className="text-center text-slate-400 py-10 text-sm italic">No entries logged.</p> : 
-                                    transactions.map(t => (
-                                        <div key={t.id} className="text-sm border-b border-slate-50 pb-3 last:border-0">
-                                            <div className="flex justify-between font-bold">
-                                                <span style={{ color: HOUSES.find(x => x.id === t.houseId)?.color }}>{HOUSES.find(x => x.id === t.houseId)?.name}</span>
-                                                <span className={t.amount > 0 ? 'text-green-600' : 'text-red-600'}>{t.amount > 0 ? '+' : ''}{t.amount}</span>
-                                            </div>
-                                            <p className="text-slate-500 text-[11px] mt-1">{t.reason}</p>
-                                        </div>
-                                    ))
-                                }
-                            </div>
+                    <div className="bg-white p-6 rounded-2xl border shadow-sm min-h-[400px] flex flex-col">
+                        <h2 className="text-lg font-bold mb-4 text-slate-800">Current Standings</h2>
+                        <div className="flex-1 min-h-[300px]">
+                            <CustomBarChart data={data} />
                         </div>
                     </div>
                 </div>
             );
         }
 
-        function Teacher({ awardPoints, remaining }) {
-            const [house, setHouse] = useState('centaurs');
-            const [pts, setPts] = useState(5);
-            const [reason, setReason] = useState('');
+        function Login() {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
             const [loading, setLoading] = useState(false);
 
-            const handleAward = async () => {
-                if (!reason) return;
+            const handleLogin = async (e) => {
+                e.preventDefault();
                 setLoading(true);
-                await awardPoints(house, pts, reason);
+                setError('');
+                try {
+                    await window.FirebaseDB.signInWithEmailAndPassword(window.FirebaseDB.auth, email, password);
+                } catch (err) {
+                    setError("Invalid email or password.");
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="max-w-md mx-auto py-10">
+                    <form onSubmit={handleLogin} className="bg-white p-10 rounded-3xl border shadow-sm">
+                        <div className="text-4xl mb-6 text-center">🏫</div>
+                        <h2 className="text-2xl font-bold mb-2 text-center">Teacher Login</h2>
+                        <p className="text-slate-500 mb-8 text-center text-sm">Sign in to submit your house rankings.</p>
+                        
+                        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">{error}</div>}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
+                                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-blue-500" />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:opacity-50 mt-4">
+                                {loading ? 'Signing in...' : 'Sign In'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            );
+        }
+
+        function Teacher({ user }) {
+            const [ranks, setRanks] = useState({ first: '', second: '', third: '', fourth: '' });
+            const [loading, setLoading] = useState(false);
+            const [success, setSuccess] = useState(false);
+
+            const isComplete = ranks.first && ranks.second && ranks.third && ranks.fourth;
+            const hasDuplicates = new Set(Object.values(ranks).filter(Boolean)).size !== Object.values(ranks).filter(Boolean).length;
+
+            const submitRankings = async () => {
+                if (!isComplete || hasDuplicates) return;
+                setLoading(true);
+                try {
+                    const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
+                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), {
+                        teacherEmail: user.email,
+                        ranks: ranks,
+                        timestamp: Timestamp.now(),
+                        processed: false
+                    });
+                    setSuccess(true);
+                    setRanks({ first: '', second: '', third: '', fourth: '' });
+                } catch (e) {
+                    alert("Error submitting rankings.");
+                }
                 setLoading(false);
             };
 
             return (
                 <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border shadow-xl">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold">Award Points</h2>
-                        <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold text-slate-400">Your Budget</p>
-                            <p className="text-lg font-bold text-blue-600">{remaining} pts</p>
-                        </div>
+                    <h2 className="text-2xl font-bold mb-2">Submit House Rankings</h2>
+                    <p className="text-slate-500 text-sm mb-6">Assign 1st through 4th place. Your rankings will be tallied monthly by the admin.</p>
+                    
+                    {success && <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-6 font-medium">✅ Rankings submitted successfully!</div>}
+
+                    <div className="space-y-4 mb-8">
+                        {['first', 'second', 'third', 'fourth'].map((place, index) => (
+                            <div key={place} className="flex items-center gap-4">
+                                <span className="w-20 text-sm font-bold text-slate-400 uppercase">{index + 1}{['st','nd','rd','th'][index]} Place</span>
+                                <select 
+                                    value={ranks[place]} 
+                                    onChange={(e) => setRanks({...ranks, [place]: e.target.value})}
+                                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium focus:border-blue-500"
+                                >
+                                    <option value="" disabled>Select House...</option>
+                                    {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                                </select>
+                            </div>
+                        ))}
                     </div>
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-3">
-                            {HOUSES.map(h => (
-                                <button key={h.id} onClick={() => setHouse(h.id)} className={`p-4 rounded-xl border-2 text-xs font-bold transition flex flex-col items-center gap-2 ${house === h.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-50 text-slate-400 bg-slate-50'}`}>
-                                    <div className="w-3 h-3 rounded-full" style={{backgroundColor: h.color}}></div>
-                                    {h.name}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 items-center">
-                            <label className="text-sm font-bold text-slate-700">Point Value:</label>
-                            <input type="number" value={pts} onChange={e => setPts(parseInt(e.target.value) || 0)} className="col-span-2 p-3 bg-slate-50 rounded-xl border-none font-bold text-center" />
-                        </div>
-                        <input type="text" placeholder="Reason (e.g. Sports Day)..." value={reason} onChange={e => setReason(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl border-none" />
-                        <button onClick={handleAward} disabled={loading || remaining < Math.abs(pts) || !reason} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50">
-                            {loading ? "Processing..." : `Award ${pts} Points`}
-                        </button>
-                    </div>
+
+                    {hasDuplicates && <p className="text-red-500 text-sm mb-4 font-medium">⚠️ Each house can only be selected once.</p>}
+
+                    <button 
+                        onClick={submitRankings} 
+                        disabled={loading || !isComplete || hasDuplicates} 
+                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50"
+                    >
+                        {loading ? "Submitting..." : "Submit Rankings"}
+                    </button>
                 </div>
             );
         }
 
-        function Login({ onLogin }) {
+        function Admin() {
+            const [pendingRankings, setPendingRankings] = useState([]);
+            const [processing, setProcessing] = useState(false);
+
+            useEffect(() => {
+                fetchPending();
+            }, []);
+
+            const fetchPending = async () => {
+                const { db, collection, query, where, getDocs } = window.FirebaseDB;
+                const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), where("processed", "==", false));
+                const snapshot = await getDocs(q);
+                const list = [];
+                snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                setPendingRankings(list);
+            };
+
+            const processMonthlyPoints = async () => {
+                if (pendingRankings.length === 0) return;
+                if (!confirm(`Are you sure you want to process ${pendingRankings.length} ranking submissions?`)) return;
+                
+                setProcessing(true);
+                try {
+                    const { db, doc, writeBatch, increment } = window.FirebaseDB;
+                    const batch = writeBatch(db);
+
+                    // Define Points Here - Updated
+                    const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
+                    const totalTally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
+
+                    // Calculate totals from pending rankings
+                    pendingRankings.forEach(submission => {
+                        totalTally[submission.ranks.first] += pointsMap.first;
+                        totalTally[submission.ranks.second] += pointsMap.second;
+                        totalTally[submission.ranks.third] += pointsMap.third;
+                        totalTally[submission.ranks.fourth] += pointsMap.fourth;
+                        
+                        // Mark as processed
+                        const rankRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', submission.id);
+                        batch.update(rankRef, { processed: true });
+                    });
+
+                    // Add to house totals
+                    HOUSES.forEach(h => {
+                        if (totalTally[h.id] > 0) {
+                            const houseRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', h.id);
+                            batch.set(houseRef, { points: increment(totalTally[h.id]) }, { merge: true });
+                        }
+                    });
+
+                    await batch.commit();
+                    alert("Points successfully tallied and added to the board!");
+                    fetchPending();
+                } catch (e) {
+                    console.error(e);
+                    alert("Error processing points.");
+                }
+                setProcessing(false);
+            };
+
+            const resetAllPoints = async () => {
+                if (!confirm("CRITICAL WARNING: This will set all house points back to 0. Are you absolutely sure?")) return;
+                
+                try {
+                    const { db, doc, writeBatch } = window.FirebaseDB;
+                    const batch = writeBatch(db);
+                    HOUSES.forEach(h => {
+                        const houseRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', h.id);
+                        batch.set(houseRef, { points: 0 });
+                    });
+                    await batch.commit();
+                    alert("All points have been reset to 0.");
+                } catch(e) {
+                    alert("Error resetting points.");
+                }
+            };
+
             return (
-                <div className="max-w-md mx-auto text-center py-20">
-                    <div className="bg-white p-12 rounded-3xl border shadow-sm">
-                        <div className="text-4xl mb-6">🔑</div>
-                        <h2 className="text-2xl font-bold mb-4">Teacher Access</h2>
-                        <p className="text-slate-500 mb-8 leading-relaxed">Authentication is required to track daily point limits. All activity is logged.</p>
-                        <button onClick={onLogin} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition">Enter Portal</button>
+                <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="bg-white p-8 rounded-3xl border shadow-sm">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold">Admin Dashboard</h2>
+                                <p className="text-slate-500 text-sm">Manage submissions and total points.</p>
+                            </div>
+                            <button onClick={resetAllPoints} className="border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50">
+                                Reset All Points to 0
+                            </button>
+                        </div>
+
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-lg">Pending Teacher Rankings</h3>
+                                <span className="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-xs font-bold">{pendingRankings.length} Submissions</span>
+                            </div>
+
+                            {pendingRankings.length === 0 ? (
+                                <p className="text-slate-400 text-sm italic py-4">No pending rankings to process.</p>
+                            ) : (
+                                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                                    {pendingRankings.map(r => (
+                                        <div key={r.id} className="bg-white p-3 rounded-lg border text-sm flex justify-between items-center">
+                                            <span className="font-medium text-slate-700">{r.teacherEmail}</span>
+                                            <div className="flex gap-3 text-xs">
+                                                <span className="text-yellow-600 font-bold">1st: {HOUSES.find(h=>h.id===r.ranks.first)?.name}</span>
+                                                <span className="text-slate-400">|</span>
+                                                <span className="text-slate-500 font-medium">2nd: {HOUSES.find(h=>h.id===r.ranks.second)?.name}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={processMonthlyPoints} 
+                                disabled={processing || pendingRankings.length === 0}
+                                className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold disabled:opacity-50"
+                            >
+                                {processing ? "Processing..." : "Tally Monthly Points"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
