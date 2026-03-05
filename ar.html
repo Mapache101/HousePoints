@@ -70,11 +70,12 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // Switched to OAuthProvider for Microsoft Auth
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // Added setDoc for initializing the roles document
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ⚠️ IMPORTANT: Replace this with your actual Firebase project config 
-        // You can find this in your Firebase Console -> Project Settings
+        // Your specific Firebase project config 
         const githubPagesConfig = {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
             authDomain: "scis-house-points.firebaseapp.com",
@@ -93,10 +94,9 @@
             const db = getFirestore(app);
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-ar-portal';
 
-            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, appId };
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, setDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
-            // We failed to init (likely bad API key on Github Pages). The React app will catch this and show a warning.
         }
     </script>
 
@@ -224,6 +224,88 @@
             );
         }
 
+        function RoleManager({ roles }) {
+            const [newEmail, setNewEmail] = useState('');
+
+            const handleAddCoordinator = async (e) => {
+                e.preventDefault();
+                if (!newEmail || !newEmail.includes('@')) return alert("Enter a valid email");
+                
+                const { db, doc, updateDoc, appId } = window.FirebaseDB;
+                const emailToAdd = newEmail.toLowerCase().trim();
+                
+                if (roles.coordinators.includes(emailToAdd) || roles.admins.includes(emailToAdd)) {
+                    return alert("This user already has permissions.");
+                }
+
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), {
+                        coordinators: [...roles.coordinators, emailToAdd]
+                    });
+                    setNewEmail('');
+                } catch (err) {
+                    alert("Error adding coordinator. Ensure you have admin rights.");
+                    console.error(err);
+                }
+            };
+
+            const handleRemoveCoordinator = async (emailToRemove) => {
+                if (!confirm(`Revoke coordinator access for ${emailToRemove}?`)) return;
+                
+                const { db, doc, updateDoc, appId } = window.FirebaseDB;
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), {
+                        coordinators: roles.coordinators.filter(e => e !== emailToRemove)
+                    });
+                } catch (err) {
+                    alert("Error removing coordinator.");
+                    console.error(err);
+                }
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+                        <h3 className="font-display font-black text-xl text-scis-navy mb-4">Administrators</h3>
+                        <p className="text-sm text-slate-500 mb-4">Admins have full access to manage students, ARs, and system roles.</p>
+                        <ul className="space-y-2 mb-6">
+                            {roles.admins.map(email => (
+                                <li key={email} className="p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-scis-navy text-sm flex justify-between items-center">
+                                    {email}
+                                    <span className="bg-scis-navy text-scis-gold text-[10px] px-2 py-1 rounded uppercase tracking-widest">Admin</span>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <h3 className="font-display font-black text-xl text-scis-navy mb-4 mt-8">Coordinators</h3>
+                        <p className="text-sm text-slate-500 mb-4">Coordinators can view the dashboard and delete AR records.</p>
+                        
+                        <form onSubmit={handleAddCoordinator} className="flex gap-2 mb-6">
+                            <input 
+                                type="email" 
+                                placeholder="Add coordinator email (e.g., teacher@scis-bo.com)" 
+                                value={newEmail} 
+                                onChange={e => setNewEmail(e.target.value)} 
+                                required 
+                                className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm" 
+                            />
+                            <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors">Add</button>
+                        </form>
+
+                        <ul className="space-y-2">
+                            {roles.coordinators.length === 0 && <li className="text-sm text-slate-400 italic">No coordinators assigned.</li>}
+                            {roles.coordinators.map(email => (
+                                <li key={email} className="p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm flex justify-between items-center">
+                                    {email}
+                                    <button onClick={() => handleRemoveCoordinator(email)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors">Remove</button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            );
+        }
+
         // --- COMPONENTS ---
 
         function HouseBadge({ houseId }) {
@@ -236,7 +318,7 @@
             );
         }
 
-        function ARForm({ user, students }) {
+        function ARForm({ userEmail, students }) {
             const GRADES = useMemo(() => [...new Set(students.map(s => s.grade))].sort(), [students]);
 
             const [searchMode, setSearchMode] = useState('search'); // 'search' | 'dropdown'
@@ -277,7 +359,7 @@
                         reason: reason,
                         customReason: reason === 'Other - Otro' ? customReason : null,
                         subject: subject,
-                        teacherEmail: user.email || "teacher@scis-bo.com",
+                        teacherEmail: userEmail || "teacher@scis-bo.com",
                         timestamp: Timestamp.now(),
                         status: 'pending'
                     };
@@ -513,8 +595,8 @@
             );
         }
 
-        function CoordinatorDashboard({ students }) {
-            const [view, setView] = useState('ars'); // 'ars' | 'students'
+        function CoordinatorDashboard({ students, roles, isAdmin, isCoordinator }) {
+            const [view, setView] = useState('ars'); // 'ars' | 'students' | 'roles'
             const [ars, setArs] = useState([]);
             const [loading, setLoading] = useState(true);
             
@@ -527,7 +609,6 @@
             useEffect(() => {
                 const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
                 
-                // Firestore Rule 2 Constraint: No complex orderBy/where. Fetch all and filter client side.
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections'));
                 
                 const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -543,7 +624,17 @@
                 return () => unsubscribe();
             }, []);
 
-            // Dynamically generate available grades from AR records for the filter dropdown
+            const handleDeleteAR = async (id) => {
+                if (!confirm("Are you sure you want to permanently delete this AR record?")) return;
+                try {
+                    const { db, doc, deleteDoc, appId } = window.FirebaseDB;
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_reflections', id));
+                } catch (err) {
+                    console.error("Error deleting AR:", err);
+                    alert("Failed to delete AR.");
+                }
+            };
+
             const availableGrades = useMemo(() => {
                 const grades = new Set(ars.map(ar => ar.grade).filter(Boolean));
                 return [...grades].sort();
@@ -552,12 +643,10 @@
             const processedArs = useMemo(() => {
                 let result = [...ars];
                 
-                // 1. Apply Grade Filter
                 if (gradeFilter) {
                     result = result.filter(ar => ar.grade === gradeFilter);
                 }
 
-                // 2. Apply Text Search
                 if (filter) {
                     const f = filter.toLowerCase();
                     result = result.filter(ar => 
@@ -568,7 +657,6 @@
                     );
                 }
 
-                // 3. Apply Sorting
                 result.sort((a, b) => {
                     let comparison = 0;
                     if (sortField === 'date') {
@@ -582,7 +670,6 @@
                     } else if (sortField === 'subject') {
                         comparison = (a.subject || '').localeCompare(b.subject || '');
                     }
-                    
                     return sortDirection === 'asc' ? comparison : -comparison;
                 });
 
@@ -600,18 +687,26 @@
                     <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
                         <div>
                             <h2 className="text-3xl font-display font-black text-scis-navy uppercase tracking-tight flex items-center gap-2">
-                                <span className="text-3xl">📋</span> {view === 'ars' ? 'Dashboard' : 'Student Database'}
+                                <span className="text-3xl">📋</span> {view === 'ars' ? 'Dashboard' : view === 'students' ? 'Student Database' : 'Manage Roles'}
                             </h2>
                             <p className="text-slate-500 text-sm font-medium mt-1">High School Coordinator Panel</p>
                         </div>
+                        
                         <div className="flex gap-2">
                             <button onClick={() => setView('ars')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'ars' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Dashboard</button>
-                            <button onClick={() => setView('students')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'students' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Manage Students</button>
+                            {isAdmin && (
+                                <>
+                                    <button onClick={() => setView('students')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'students' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Students</button>
+                                    <button onClick={() => setView('roles')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'roles' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Roles</button>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    {view === 'students' ? (
+                    {view === 'students' && isAdmin ? (
                         <StudentManager students={students} />
+                    ) : view === 'roles' && isAdmin ? (
+                        <RoleManager roles={roles} />
                     ) : (
                         <>
                             {/* Advanced Filter and Sort Toolbar */}
@@ -676,6 +771,7 @@
                                                     <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Subject</th>
                                                     <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Reason</th>
                                                     <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Teacher</th>
+                                                    {isCoordinator && <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="text-sm">
@@ -700,6 +796,11 @@
                                                             </div>
                                                         </td>
                                                         <td className="p-4 text-slate-500 text-xs">{ar.teacherEmail}</td>
+                                                        {isCoordinator && (
+                                                            <td className="p-4">
+                                                                <button onClick={() => handleDeleteAR(ar.id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase tracking-wider bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Delete</button>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -714,33 +815,42 @@
         }
 
         function App() {
-            // Early return if Firebase failed to initialize (e.g., missing API key on Github Pages)
+            // Early return if Firebase failed to initialize
             if (!window.FirebaseDB) {
                 return (
                     <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
                         <div className="text-red-500 text-6xl mb-4">⚠️</div>
                         <h2 className="text-2xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">Firebase Setup Required</h2>
-                        <p className="text-slate-600 max-w-md text-sm">
-                            It looks like you deployed to GitHub Pages! Please open the <code>index.html</code> file in your code editor, locate the <code>githubPagesConfig</code> placeholder (around line 70), and replace it with your real Firebase Project configuration.
-                        </p>
                     </div>
                 );
             }
 
             const [user, setUser] = useState(null);
-            const [role, setRole] = useState('teacher'); // 'teacher' | 'coordinator'
+            const [currentTab, setCurrentTab] = useState('form'); // 'form' | 'dashboard'
             const [authLoaded, setAuthLoaded] = useState(false);
             const [students, setStudents] = useState([]);
+            
+            // Dynamic Roles stored in Firebase
+            const [roles, setRoles] = useState({ admins: [], coordinators: [] });
+
+            const userEmail = user?.email ? user.email.toLowerCase() : (user?.isAnonymous ? 'dolguin@scis-bo.com' : null);
+            
+            // Determine privileges dynamically
+            const isAdmin = userEmail && roles.admins.includes(userEmail);
+            const isCoordinator = userEmail && (isAdmin || roles.coordinators.includes(userEmail));
 
             useEffect(() => {
-                const { auth, db, collection, query, onSnapshot, appId, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseDB;
+                const { auth, db, collection, query, onSnapshot, appId, doc, setDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseDB;
                 
-                // Follow Rule 3: Auth before Queries
+                // Auth check & initialization
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
+                        } else if (window.location.hostname.includes('github.io') || window.location.hostname === 'localhost') {
+                            // Wait for user to trigger Microsoft login
                         } else {
+                            // Fallback for Canvas preview
                             await signInAnonymously(auth);
                         }
                     } catch (e) {
@@ -755,14 +865,31 @@
                     setAuthLoaded(true);
                 });
 
+                // Fetch dynamic roles
+                const rolesDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles');
+                const unsubscribeRoles = onSnapshot(rolesDoc, (docSnap) => {
+                    if (docSnap.exists()) {
+                        setRoles({
+                            admins: (docSnap.data().admins || []).map(e => e.toLowerCase()),
+                            coordinators: (docSnap.data().coordinators || []).map(e => e.toLowerCase())
+                        });
+                    } else {
+                        // Initialize first time configuration for the database
+                        const initialRoles = { 
+                            admins: ['dolguin@scis-bo.com'], 
+                            coordinators: ['amanda@scis-bo.com'] 
+                        };
+                        setDoc(rolesDoc, initialRoles);
+                        setRoles(initialRoles);
+                    }
+                });
+
                 // Fetch real-time students from Firestore
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
                 const unsubscribeStudents = onSnapshot(q, (snapshot) => {
                     const list = [];
                     snapshot.forEach(doc => {
                         let docData = doc.data();
-                        
-                        // Automatically format legacy grades (e.g., 1s1 -> 1sA, 2s2 -> 2sB) for UI display
                         let formattedGrade = docData.grade || '';
                         formattedGrade = formattedGrade.replace(/s1/g, 'sA').replace(/s2/g, 'sB');
 
@@ -779,9 +906,29 @@
 
                 return () => {
                     unsubscribeAuth();
+                    unsubscribeRoles();
                     unsubscribeStudents();
                 };
             }, []);
+
+            const handleLogin = async () => {
+                const { auth, signInWithPopup, OAuthProvider } = window.FirebaseDB;
+                const provider = new OAuthProvider('microsoft.com');
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Login failed:", error);
+                    if (error.code !== 'auth/popup-closed-by-user') {
+                        alert("Could not sign in with Microsoft. Check console for details.");
+                    }
+                }
+            };
+
+            const handleLogout = async () => {
+                const { auth, signOut } = window.FirebaseDB;
+                await signOut(auth);
+                setCurrentTab('form');
+            };
 
             if (!authLoaded) {
                 return (
@@ -791,32 +938,64 @@
                 );
             }
 
+            // Show Login Screen
+            if (!user || (!user.email && !user.isAnonymous)) {
+                return (
+                    <div className="flex h-screen flex-col items-center justify-center bg-[#0C1D40] p-6 text-center">
+                        <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
+                            <div className="bg-scis-gold text-scis-navy w-16 h-16 mx-auto flex items-center justify-center rounded-2xl shadow-inner font-display font-black text-4xl mb-6">
+                                🦅
+                            </div>
+                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS AR Portal</h2>
+                            <p className="text-slate-500 text-sm font-medium mb-8">Please sign in with your school email to access the Active Reflection portal.</p>
+                            <button 
+                                onClick={handleLogin}
+                                className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#7fba00" d="M11 0h10v10H11z"/><path fill="#00a4ef" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
+                                Sign In with Microsoft
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="min-h-screen">
                     {/* Top Navigation */}
                     <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 py-3 sticky top-0 z-40 shadow-md">
                         <div className="max-w-6xl mx-auto flex justify-between items-center">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <div className="bg-scis-gold text-scis-navy w-8 h-8 flex items-center justify-center rounded-lg shadow-inner font-display font-black text-xl">
                                     🦅
                                 </div>
-                                <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block">SCIS Portal</h1>
-                                <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden">AR</h1>
+                                <div>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block">SCIS Portal</h1>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden">AR</h1>
+                                    {userEmail && <div className="text-[10px] text-scis-gold font-medium">{userEmail}</div>}
+                                </div>
                             </div>
                             
-                            {/* Role Switcher (For prototype/demo purposes) */}
-                            <div className="flex bg-white/10 p-1 rounded-xl">
-                                <button 
-                                    onClick={() => setRole('teacher')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${role === 'teacher' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}
-                                >
-                                    Teacher Mode
-                                </button>
-                                <button 
-                                    onClick={() => setRole('coordinator')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${role === 'coordinator' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}
-                                >
-                                    Dashboard
+                            <div className="flex items-center gap-2">
+                                {/* Role Based Toggles */}
+                                {isCoordinator && (
+                                    <div className="flex bg-white/10 p-1 rounded-xl mr-2">
+                                        <button 
+                                            onClick={() => setCurrentTab('form')}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'form' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}
+                                        >
+                                            Assign
+                                        </button>
+                                        <button 
+                                            onClick={() => setCurrentTab('dashboard')}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'dashboard' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}
+                                        >
+                                            Dashboard
+                                        </button>
+                                    </div>
+                                )}
+                                <button onClick={handleLogout} className="text-white hover:text-red-400 p-2 transition-colors" title="Sign Out">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -824,8 +1003,8 @@
 
                     {/* Main Content Area */}
                     <main className="pt-6">
-                        {role === 'teacher' && user && <ARForm user={user} students={students} />}
-                        {role === 'coordinator' && user && <CoordinatorDashboard students={students} />}
+                        {currentTab === 'form' && <ARForm userEmail={userEmail} students={students} />}
+                        {currentTab === 'dashboard' && isCoordinator && <CoordinatorDashboard students={students} roles={roles} isAdmin={isAdmin} isCoordinator={isCoordinator} />}
                     </main>
                 </div>
             );
