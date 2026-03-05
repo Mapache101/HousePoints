@@ -127,9 +127,9 @@
 
         const SUBJECTS = [
             "Coordination", "Spanish / Ms Carola", "Spanish / Ms Charito", "Science / Mr Tobias", 
-            "Science / Ms Daniela", "Chemistry", "Social Studies", "History", "Opción 9", 
+            "Science / Ms Daniela", "Chemistry", "Social Studies", "History", 
             "Physics", "Physical Education", "Maths / Kingsley", "Maths / Silvia", 
-            "Maths / Guillermo", "Opción 15", "English / Elvia", "English / Sara", 
+            "Maths / Guillermo", "English / Elvia", "English / Sara", 
             "English / Letty", "ICT", "Biology", "Art", "Music", "Global Perspectives / Ms Wei", 
             "Global Perspectives / Ms Bell", "Business Studies", "Homeroom"
         ];
@@ -162,7 +162,7 @@
             };
 
             const handleBulkImport = async () => {
-                const jsonStr = prompt("Paste JSON array of students e.g. [{name: 'John Doe', grade: '2s1', house: 'centaurs'}]:");
+                const jsonStr = prompt("Paste JSON array of students e.g. [{name: 'John Doe', grade: '2sA', house: 'centaurs'}]:");
                 if (!jsonStr) return;
                 try {
                     const arr = JSON.parse(jsonStr);
@@ -186,7 +186,7 @@
                         </div>
                         <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                             <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm" />
-                            <input type="text" placeholder="Grade (e.g. 2s1)" value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value})} required className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm" />
+                            <input type="text" placeholder="Grade (e.g. 2sA)" value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value})} required className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm" />
                             <select value={formData.house} onChange={e => setFormData({...formData, house: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm">
                                 {Object.entries(HOUSES).map(([id, h]) => <option key={id} value={id}>{h.name}</option>)}
                             </select>
@@ -689,7 +689,18 @@
                 const unsubscribeStudents = onSnapshot(q, (snapshot) => {
                     const list = [];
                     snapshot.forEach(doc => {
-                        list.push({ id: doc.id, ...doc.data(), displayName: (doc.data().name || '').toUpperCase() });
+                        let docData = doc.data();
+                        
+                        // Automatically format legacy grades (e.g., 1s1 -> 1sA, 2s2 -> 2sB) for UI display
+                        let formattedGrade = docData.grade || '';
+                        formattedGrade = formattedGrade.replace(/s1/g, 'sA').replace(/s2/g, 'sB');
+
+                        list.push({ 
+                            id: doc.id, 
+                            ...docData, 
+                            grade: formattedGrade,
+                            displayName: (docData.name || '').toUpperCase() 
+                        });
                     });
                     list.sort((a,b) => a.name.localeCompare(b.name));
                     setStudents(list);
