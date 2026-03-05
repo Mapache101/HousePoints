@@ -73,18 +73,31 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Setup Firebase
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Fallback config for local dev/testing if needed
-            projectId: "demo-project"
+        // ⚠️ IMPORTANT: Replace this with your actual Firebase project config 
+        // You can find this in your Firebase Console -> Project Settings
+        const githubPagesConfig = {
+            apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+            authDomain: "scis-house-points.firebaseapp.com",
+            projectId: "scis-house-points",
+            storageBucket: "scis-house-points.firebasestorage.app",
+            messagingSenderId: "929403398815",
+            appId: "1:929403398815:web:c6634925bfac5b665650aa"
         };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-ar-portal';
 
-        window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, appId };
+        // Setup Firebase
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : githubPagesConfig;
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-ar-portal';
+
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, appId };
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            // We failed to init (likely bad API key on Github Pages). The React app will catch this and show a warning.
+        }
     </script>
 
     <script type="text/babel">
@@ -630,6 +643,19 @@
         }
 
         function App() {
+            // Early return if Firebase failed to initialize (e.g., missing API key on Github Pages)
+            if (!window.FirebaseDB) {
+                return (
+                    <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+                        <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                        <h2 className="text-2xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">Firebase Setup Required</h2>
+                        <p className="text-slate-600 max-w-md text-sm">
+                            It looks like you deployed to GitHub Pages! Please open the <code>index.html</code> file in your code editor, locate the <code>githubPagesConfig</code> placeholder (around line 70), and replace it with your real Firebase Project configuration.
+                        </p>
+                    </div>
+                );
+            }
+
             const [user, setUser] = useState(null);
             const [role, setRole] = useState('teacher'); // 'teacher' | 'coordinator'
             const [authLoaded, setAuthLoaded] = useState(false);
