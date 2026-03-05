@@ -914,12 +914,18 @@
             const handleLogin = async () => {
                 const { auth, signInWithPopup, OAuthProvider } = window.FirebaseDB;
                 const provider = new OAuthProvider('microsoft.com');
+                
+                // Restrict login strictly to the school's tenant domain
+                provider.setCustomParameters({
+                    tenant: 'scis-bo.com'
+                });
+
                 try {
                     await signInWithPopup(auth, provider);
                 } catch (error) {
                     console.error("Login failed:", error);
-                    if (error.code !== 'auth/popup-closed-by-user') {
-                        alert("Could not sign in with Microsoft. Check console for details.");
+                    if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                        alert("Could not sign in with Microsoft. Check console for details. Error: " + error.message);
                     }
                 }
             };
