@@ -91,7 +91,8 @@
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-ar-portal';
+            // Updated to default-app-id so it pools together with the main house cup app
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
             window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, setDoc, increment, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
         } catch (error) {
@@ -658,11 +659,11 @@
                     setLoading(false);
                 });
 
-                // Fetch Current House Points
-                const totalsQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals'));
+                // Fetch Current House Points from the main shared collection
+                const totalsQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'houses'));
                 const unsubscribeTotals = onSnapshot(totalsQ, (snapshot) => {
                     const totals = {};
-                    snapshot.forEach(doc => totals[doc.id] = doc.data().points || 0);
+                    snapshot.forEach(doc => totals[doc.id] = typeof doc.data().points === 'number' ? doc.data().points : (doc.data().score || 0));
                     setHouseTotals(totals);
                 });
 
@@ -692,8 +693,8 @@
                 try {
                     const { db, doc, updateDoc, setDoc, increment, appId } = window.FirebaseDB;
                     
-                    // Deduct Points safely using increment
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', record.house), {
+                    // Deduct Points safely using increment on the shared collection
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houses', record.house), {
                         points: increment(-pointsToDeduct)
                     }, { merge: true });
                     
