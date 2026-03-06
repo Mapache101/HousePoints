@@ -70,11 +70,11 @@
     <script type="module">
         console.log("Starting Firebase script...");
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // Added OAuthProvider and signInWithPopup to the imports
-        import { getAuth, onAuthStateChanged, OAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, OAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = {
+        // Your specific Firebase project config 
+        const githubPagesConfig = {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
             authDomain: "scis-house-points.firebaseapp.com",
             projectId: "scis-house-points",
@@ -83,13 +83,16 @@
             appId: "1:929403398815:web:c6634925bfac5b665650aa"
         };
 
+        // Align with AR portal config loading
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : githubPagesConfig;
+        
         try {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
 
-            // Exported the new auth methods to window
-            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged };
+            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, appId };
             console.log("Firebase successfully initialized");
         } catch (error) {
             console.error("Firebase Init Error:", error);
@@ -108,7 +111,6 @@
             { id: 'unicorns', name: 'Unicorns', color: '#ef4444', icon: '🦄' }  
         ];
 
-        const APP_ID = 'scis-house-points';
         const ADMIN_EMAIL = 'dolguin@scis-bo.com';
 
         const formatDateTime = (timestamp) => {
@@ -209,14 +211,30 @@
                 }, 100);
 
                 function startApp() {
-                    const { auth, db, onAuthStateChanged, collection, query, onSnapshot } = window.FirebaseDB;
+                    const { auth, db, onAuthStateChanged, collection, query, onSnapshot, signInWithCustomToken, signInAnonymously, appId } = window.FirebaseDB;
+
+                    // Support for Canvas Preview Environment & Auto Login
+                    const initAuth = async () => {
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } else if (!window.location.hostname.includes('github.io') && window.location.hostname !== 'localhost') {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (e) {
+                            console.error("Auth init failed:", e);
+                        }
+                    };
+
+                    initAuth();
 
                     onAuthStateChanged(auth, (u) => {
                         setUser(u);
                         setLoading(false);
                     }, () => setLoading(false));
 
-                    const totalsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals');
+                    // Unified Data Pool -> "houseTotals" Collection
+                    const totalsRef = collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals');
                     onSnapshot(query(totalsRef), (snapshot) => {
                         const totals = {};
                         snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
@@ -250,13 +268,13 @@
                         <div className="flex flex-wrap justify-center gap-2 md:gap-3">
                             <button onClick={() => setView('public')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${view === 'public' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent hover:bg-white/20'}`}>🏆 Board</button>
                             
-                            {!user ? (
+                            {(!user || user.isAnonymous) ? (
                                 <button onClick={() => setView('login')} className="btn-game bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold border-2 border-b-4 border-blue-800 hover:bg-blue-500">Teacher Login</button>
                             ) : (
                                 <>
                                     <button onClick={() => setView('teacher')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${view === 'teacher' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent hover:bg-white/20'}`}>⭐ Award Points</button>
                                     
-                                    {user.email === ADMIN_EMAIL && (
+                                    {(user.email === ADMIN_EMAIL || user.email?.toLowerCase() === ADMIN_EMAIL) && (
                                         <button onClick={() => setView('admin')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${view === 'admin' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent hover:bg-white/20'}`}>👑 Admin</button>
                                     )}
                                     
@@ -271,8 +289,8 @@
                         
                         {view === 'public' && <Dashboard houseTotals={houseTotals} />}
                         {view === 'login' && <Login setView={setView} />}
-                        {view === 'teacher' && user && <Teacher user={user} />}
-                        {view === 'admin' && user?.email === ADMIN_EMAIL && <Admin />}
+                        {view === 'teacher' && user && !user.isAnonymous && <Teacher user={user} />}
+                        {view === 'admin' && user && user.email?.toLowerCase() === ADMIN_EMAIL && <Admin />}
                     </main>
                 </div>
             );
@@ -348,7 +366,7 @@
                     
                     // Route to proper view based on email after a short success delay
                     setTimeout(() => {
-                        setView(result.user.email === ADMIN_EMAIL ? 'admin' : 'teacher');
+                        setView(result.user.email?.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'teacher');
                     }, 1800);
                 } catch (err) {
                     console.error("Microsoft Login Error:", err.message);
@@ -409,9 +427,9 @@
             }, []);
 
             const fetchMyPending = async () => {
-                const { db, collection, query, where, getDocs } = window.FirebaseDB;
+                const { db, collection, query, where, getDocs, appId } = window.FirebaseDB;
                 const q = query(
-                    collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), 
+                    collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), 
                     where("teacherEmail", "==", user.email),
                     where("processed", "==", false)
                 );
@@ -444,14 +462,14 @@
                 if (!isComplete) return;
                 setLoading(true);
                 try {
-                    const { db, collection, doc, addDoc, updateDoc, Timestamp } = window.FirebaseDB;
+                    const { db, collection, doc, addDoc, updateDoc, Timestamp, appId } = window.FirebaseDB;
                     if (editingId) {
-                        await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', editingId), {
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', editingId), {
                             month, ranks, timestamp: Timestamp.now() 
                         });
                         setSuccess("Match results updated!");
                     } else {
-                        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), {
                             teacherEmail: user.email, month, ranks, timestamp: Timestamp.now(), processed: false
                         });
                         setSuccess("Match results submitted! Points pending admin tally.");
@@ -468,7 +486,6 @@
             };
 
             const handleEdit = (submission) => {
-                // Check for backward compatibility if old records used className
                 setMonth(submission.month || submission.className || '');
                 setRanks(submission.ranks);
                 setEditingId(submission.id);
@@ -478,8 +495,8 @@
             const handleDelete = async (id) => {
                 if(!confirm("Are you sure you want to delete these pending points?")) return;
                 try {
-                    const { db, doc, deleteDoc } = window.FirebaseDB;
-                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', id));
+                    const { db, doc, deleteDoc, appId } = window.FirebaseDB;
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', id));
                     fetchMyPending();
                 } catch(e) {
                     alert("Error deleting submission.");
@@ -611,8 +628,8 @@
             }, []);
 
             const fetchPending = async () => {
-                const { db, collection, query, where, getDocs } = window.FirebaseDB;
-                const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'rankings'), where("processed", "==", false));
+                const { db, collection, query, where, getDocs, appId } = window.FirebaseDB;
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), where("processed", "==", false));
                 const snapshot = await getDocs(q);
                 const list = [];
                 snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
@@ -626,7 +643,7 @@
                 
                 setProcessing(true);
                 try {
-                    const { db, doc, writeBatch, increment } = window.FirebaseDB;
+                    const { db, doc, writeBatch, increment, appId } = window.FirebaseDB;
                     const batch = writeBatch(db);
 
                     const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
@@ -638,13 +655,13 @@
                         (submission.ranks.third || []).forEach(hId => totalTally[hId] += pointsMap.third);
                         (submission.ranks.fourth || []).forEach(hId => totalTally[hId] += pointsMap.fourth);
                         
-                        const rankRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', submission.id);
+                        const rankRef = doc(db, 'artifacts', appId, 'public', 'data', 'rankings', submission.id);
                         batch.update(rankRef, { processed: true });
                     });
 
                     HOUSES.forEach(h => {
                         if (totalTally[h.id] > 0) {
-                            const houseRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', h.id);
+                            const houseRef = doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', h.id);
                             batch.set(houseRef, { points: increment(totalTally[h.id]) }, { merge: true });
                         }
                     });
@@ -663,10 +680,10 @@
                 if (!confirm("🔥 CRITICAL WARNING: This will set all house points back to 0. Are you absolutely sure?")) return;
                 
                 try {
-                    const { db, doc, writeBatch } = window.FirebaseDB;
+                    const { db, doc, writeBatch, appId } = window.FirebaseDB;
                     const batch = writeBatch(db);
                     HOUSES.forEach(h => {
-                        const houseRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'houseTotals', h.id);
+                        const houseRef = doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', h.id);
                         batch.set(houseRef, { points: 0 });
                     });
                     await batch.commit();
@@ -679,8 +696,8 @@
             const handleDeleteAdmin = async (id) => {
                 if (!confirm("WARNING: Are you sure you want to delete this teacher's pending submission?")) return;
                 try {
-                    const { db, doc, deleteDoc } = window.FirebaseDB;
-                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'rankings', id));
+                    const { db, doc, deleteDoc, appId } = window.FirebaseDB;
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', id));
                     fetchPending();
                 } catch(e) {
                     alert("Error deleting submission.");
