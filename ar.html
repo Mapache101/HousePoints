@@ -71,7 +71,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        // Added increment for point deduction
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Your specific Firebase project config 
@@ -91,8 +90,8 @@
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
-            // Updated to default-app-id so it pools together with the main house cup app
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            // ALIGNED WITH index.html
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
 
             window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, setDoc, increment, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
         } catch (error) {
@@ -659,8 +658,8 @@
                     setLoading(false);
                 });
 
-                // Fetch Current House Points from the main shared collection
-                const totalsQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'houses'));
+                // Fetch Current House Points from the main shared collection -> "houseTotals"
+                const totalsQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals'));
                 const unsubscribeTotals = onSnapshot(totalsQ, (snapshot) => {
                     const totals = {};
                     snapshot.forEach(doc => totals[doc.id] = typeof doc.data().points === 'number' ? doc.data().points : (doc.data().score || 0));
@@ -693,8 +692,8 @@
                 try {
                     const { db, doc, updateDoc, setDoc, increment, appId } = window.FirebaseDB;
                     
-                    // Deduct Points safely using increment on the shared collection
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houses', record.house), {
+                    // Deduct Points safely using increment on the shared collection -> "houseTotals"
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', record.house), {
                         points: increment(-pointsToDeduct)
                     }, { merge: true });
                     
