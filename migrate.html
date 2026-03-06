@@ -124,7 +124,8 @@
                     if (!lines[i].trim() || lines[i].includes('DATE') || lines[i].includes('STUDENT NAME')) continue; 
                     
                     const cols = lines[i].split(delimiter);
-                    if (cols.length < 5) continue;
+                    // Need at least a student name to attempt a match
+                    if (cols.length < 2 || !cols[1].trim()) continue;
 
                     const rawNameStr = cols[1].replace(/['"]/g, '').trim();
                     const rawName = normalize(rawNameStr);
@@ -150,12 +151,13 @@
                         });
 
                         // If that fails, look for at least 2 matching words (e.g. First + Last name) 
-                        // and matching grade to be safe.
+                        // and a matching or empty grade to be safe.
                         if (!fuzzyMatch && csvWords.length >= 2) {
                             fuzzyMatch = students.find(s => {
                                 const dbWords = s.searchName.split(' ');
                                 const matchCount = csvWords.filter(w => dbWords.includes(w)).length;
-                                return matchCount >= 2 && (s.searchGrade === rawGrade || s.searchGrade.includes(rawGrade) || rawGrade.includes(s.searchGrade));
+                                const gradeMatches = rawGrade === '' || s.searchGrade === rawGrade || s.searchGrade.includes(rawGrade) || rawGrade.includes(s.searchGrade);
+                                return matchCount >= 2 && gradeMatches;
                             });
                         }
 
@@ -168,14 +170,14 @@
                     results.push({
                         rowId: generateId(),
                         originalLine: lines[i],
-                        date: cols[0].trim(),
+                        date: cols[0] ? cols[0].trim() : '',
                         rawNameStr: rawNameStr,
                         rawName: rawName,
                         matchedStudent: matched || null,
                         matchType: matchType,
                         hasAR,
                         hasDR,
-                        teacher: cols[6] ? cols[6].trim() : 'Migration Admin'
+                        teacher: cols[5] && cols[5].trim() !== '' ? cols[5].trim() : 'Migration Admin'
                     });
                 }
                 setParsedRows(results);
@@ -192,7 +194,15 @@
 
             const parseDateStr = (dateStr) => {
                 try {
+                    if (!dateStr) return window.FirebaseDB.Timestamp.now();
                     let clean = dateStr.replace(/O/gi, '0').replace(/-/g, '/').trim();
+                    
+                    // Support for Excel Serial Dates (e.g. 46064)
+                    if (!isNaN(clean) && Number(clean) > 40000) {
+                        let d = new Date(Math.round((Number(clean) - 25569) * 86400 * 1000));
+                        return window.FirebaseDB.Timestamp.fromDate(d);
+                    }
+
                     let d = new Date(clean);
                     if (isNaN(d.getTime())) return window.FirebaseDB.Timestamp.now();
                     return window.FirebaseDB.Timestamp.fromDate(d);
@@ -266,7 +276,7 @@
                         <textarea 
                             value={csvData}
                             onChange={e => setCsvData(e.target.value)}
-                            placeholder="DATE,STUDENT NAME,CLASS,AR,ACTION-DR,DIMITERS,TEACHER&#10;10/02/2026,ROBERTO GIL,2SA,1,0,-3,&#10;26-02-26,AGUSTIN BRUCKNE,3SA,1,0,-3,"
+                            placeholder="DATE,STUDENT NAME,CLASS,AR,ACTION-DR,TEACHER&#10;10/02/2026,ROBERTO GIL,2SA,1,0,SPANISH&#10;46064,LEONARDO SERRANO,2SA,1,0,"
                             className="w-full h-40 p-4 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-scis-navy font-mono text-xs whitespace-pre"
                         ></textarea>
                         <button 
