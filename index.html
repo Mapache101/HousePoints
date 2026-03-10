@@ -620,21 +620,27 @@
         }
 
         function Admin() {
-            const [pendingRankings, setPendingRankings] = useState([]);
+            const [allRankings, setAllRankings] = useState([]);
             const [processing, setProcessing] = useState(false);
+            const [exporting, setExporting] = useState(false);
+
+            // Compute pending submissions locally from the full list
+            const pendingRankings = allRankings.filter(r => !r.processed);
 
             useEffect(() => {
-                fetchPending();
+                fetchRankings();
             }, []);
 
-            const fetchPending = async () => {
-                const { db, collection, query, where, getDocs, appId } = window.FirebaseDB;
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), where("processed", "==", false));
+            const fetchRankings = async () => {
+                const { db, collection, getDocs, appId } = window.FirebaseDB;
+                // Fetch ALL rankings, not just pending ones
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
                 const snapshot = await getDocs(q);
                 const list = [];
                 snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                list.sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-                setPendingRankings(list);
+                // Sort descending (newest submissions first)
+                list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                setAllRankings(list);
             };
 
             const processMonthlyPoints = async () => {
@@ -668,7 +674,7 @@
 
                     await batch.commit();
                     alert("🏆 Points successfully tallied and added to the Grand Board!");
-                    fetchPending();
+                    fetchRankings();
                 } catch (e) {
                     console.error(e);
                     alert("Error processing points.");
@@ -694,31 +700,75 @@
             };
             
             const handleDeleteAdmin = async (id) => {
-                if (!confirm("WARNING: Are you sure you want to delete this teacher's pending submission?")) return;
+                if (!confirm("WARNING: Are you sure you want to delete this teacher's submission?")) return;
                 try {
                     const { db, doc, deleteDoc, appId } = window.FirebaseDB;
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', id));
-                    fetchPending();
+                    fetchRankings();
                 } catch(e) {
                     alert("Error deleting submission.");
                 }
             };
 
+            const exportSubmissionsLog = () => {
+                try {
+                    setExporting(true);
+                    let csvContent = "Date,Time,Teacher Email,Month/Class,1st Place (10pts),2nd Place (7pts),3rd Place (4pts),4th Place (3pts),Status\n";
+
+                    const getHouseNamesText = (idsArray) => {
+                        if (!idsArray || idsArray.length === 0) return 'None';
+                        return idsArray.map(id => HOUSES.find(x => x.id === id)?.name || id).join(' & ');
+                    };
+
+                    allRankings.forEach(r => {
+                        const dateObj = r.timestamp ? new Date(r.timestamp.seconds * 1000) : null;
+                        const dateStr = dateObj ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` : '';
+                        const timeStr = dateObj ? `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}` : '';
+                        
+                        const tEmail = `"${(r.teacherEmail || '').replace(/"/g, '""')}"`;
+                        const tMonth = `"${(r.month || r.className || '').replace(/"/g, '""')}"`;
+                        const first = `"${getHouseNamesText(r.ranks?.first)}"`;
+                        const second = `"${getHouseNamesText(r.ranks?.second)}"`;
+                        const third = `"${getHouseNamesText(r.ranks?.third)}"`;
+                        const fourth = `"${getHouseNamesText(r.ranks?.fourth)}"`;
+                        const status = r.processed ? "Processed" : "Pending";
+
+                        csvContent += `${dateStr},${timeStr},${tEmail},${tMonth},${first},${second},${third},${fourth},${status}\n`;
+                    });
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `SCIS_HouseCup_Submissions_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (err) {
+                    console.error("Export error:", err);
+                    alert("Failed to export log.");
+                } finally {
+                    setExporting(false);
+                }
+            };
+
             const getHouseNamesWithIcons = (idsArray) => {
-                if (!idsArray || idsArray.length === 0) return <span className="text-slate-300">None</span>;
+                if (!idsArray || idsArray.length === 0) return <span className="text-slate-300 font-medium italic text-xs">None</span>;
                 return (
                     <div className="flex gap-1.5 flex-wrap">
                         {idsArray.map(id => {
                             const h = HOUSES.find(x => x.id === id);
-                            return <span key={id} className="px-2 py-0.5 rounded text-white font-black text-[10px] uppercase shadow-sm border border-black/10 flex items-center gap-1" style={{backgroundColor: h?.color}}>{h?.icon} {h?.name}</span>;
+                            return <span key={id} className="px-2 py-0.5 rounded text-white font-black text-[10px] uppercase shadow-sm border border-black/10 flex items-center gap-1 whitespace-nowrap" style={{backgroundColor: h?.color}}>{h?.icon} {h?.name}</span>;
                         })}
                     </div>
                 );
             };
 
             return (
-                <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
+                <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in">
                     <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-100 border-b-8 border-b-scis-navy shadow-xl">
+                        
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                             <div className="flex items-center gap-4">
                                 <div className="text-5xl">👑</div>
@@ -727,12 +777,15 @@
                                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Review & Tally Monthly Points</p>
                                 </div>
                             </div>
-                            <button onClick={resetAllPoints} className="btn-game border-2 border-b-4 border-red-200 text-red-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-50 hover:border-red-300">
-                                Reset All Points
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                                <button onClick={resetAllPoints} className="btn-game border-2 border-b-4 border-red-200 text-red-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-50 hover:border-red-300">
+                                    Reset All Points
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="bg-slate-50 p-6 md:p-8 rounded-3xl border-2 border-slate-200">
+                        {/* PENDING RANKINGS BLOCK */}
+                        <div className="bg-slate-50 p-6 md:p-8 rounded-3xl border-2 border-slate-200 mb-8">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="font-display font-black text-xl text-scis-navy uppercase tracking-wide">Pending Points</h3>
                                 <span className="bg-scis-gold text-scis-navy py-1.5 px-4 rounded-full text-xs font-black uppercase tracking-widest shadow-sm border border-yellow-400">{pendingRankings.length} Awaiting</span>
@@ -741,7 +794,7 @@
                             {pendingRankings.length === 0 ? (
                                 <div className="text-center py-10 bg-white rounded-2xl border-2 border-dashed border-slate-300">
                                     <p className="text-4xl mb-2 opacity-50">🕸️</p>
-                                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">The ledger is empty.</p>
+                                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">No pending submissions.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4 mb-8 max-h-[500px] overflow-y-auto pr-2">
@@ -777,6 +830,66 @@
                                 {processing ? "Tallying..." : "End of Month Tally 🏆"}
                             </button>
                         </div>
+
+                        {/* FULL SUBMISSION LOG TABLE */}
+                        <div className="bg-slate-50 p-6 md:p-8 rounded-3xl border-2 border-slate-200">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <div>
+                                    <h3 className="font-display font-black text-xl text-scis-navy uppercase tracking-wide">Complete Submission Log</h3>
+                                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Total Records: {allRankings.length}</p>
+                                </div>
+                                <button onClick={exportSubmissionsLog} disabled={exporting} className="btn-game border-2 border-b-4 border-blue-200 text-blue-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-50 hover:border-blue-300 bg-white">
+                                    {exporting ? "Generating CSV..." : "📥 Download Full Log"}
+                                </button>
+                            </div>
+
+                            <div className="bg-white rounded-2xl border-2 border-slate-100 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto max-h-[600px]">
+                                    <table className="w-full text-left text-sm border-collapse min-w-[900px]">
+                                        <thead className="bg-slate-100 sticky top-0 z-10 shadow-sm">
+                                            <tr className="text-slate-500">
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">Date & Time</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">Teacher</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">Month/Class</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">1st Place</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">2nd Place</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">3rd Place</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">4th Place</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px]">Status</th>
+                                                <th className="p-4 font-black uppercase tracking-widest text-[10px] text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {allRankings.length === 0 ? (
+                                                <tr><td colSpan="9" className="p-8 text-center text-slate-400 font-medium">No records found.</td></tr>
+                                            ) : (
+                                                allRankings.map(r => (
+                                                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="p-4 font-medium text-slate-500 whitespace-nowrap text-xs">{formatDateTime(r.timestamp)}</td>
+                                                        <td className="p-4 font-bold text-scis-navy">{r.teacherEmail.split('@')[0]}</td>
+                                                        <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{r.month || r.className}</span></td>
+                                                        <td className="p-4">{getHouseNamesWithIcons(r.ranks.first)}</td>
+                                                        <td className="p-4">{getHouseNamesWithIcons(r.ranks.second)}</td>
+                                                        <td className="p-4">{getHouseNamesWithIcons(r.ranks.third)}</td>
+                                                        <td className="p-4">{getHouseNamesWithIcons(r.ranks.fourth)}</td>
+                                                        <td className="p-4">
+                                                            {r.processed ? 
+                                                                <span className="text-green-600 bg-green-50 px-2 py-1 rounded-md font-bold text-[10px] uppercase tracking-widest border border-green-200 whitespace-nowrap">✓ Processed</span> : 
+                                                                <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-md font-bold text-[10px] uppercase tracking-widest border border-amber-200 whitespace-nowrap">⏳ Pending</span>
+                                                            }
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <button onClick={() => handleDeleteAdmin(r.id)} className="text-red-400 hover:text-red-700 text-xs font-bold" title="Delete Record">✕</button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             );
