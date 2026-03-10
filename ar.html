@@ -650,7 +650,13 @@
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections'));
                 const unsubscribeArs = onSnapshot(q, (snapshot) => {
                     const list = [];
-                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        let formattedGrade = data.grade || '';
+                        // Normalize legacy classes like 1s1 to 1sA, 1S2 to 1sB
+                        formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
+                        list.push({ id: doc.id, ...data, grade: formattedGrade });
+                    });
                     setArs(list);
                     setLoading(false);
                 }, (error) => {
@@ -1053,7 +1059,8 @@
                     snapshot.forEach(doc => {
                         let docData = doc.data();
                         let formattedGrade = docData.grade || '';
-                        formattedGrade = formattedGrade.replace(/s1/g, 'sA').replace(/s2/g, 'sB');
+                        // Upgraded to 'gi' (case-insensitive) to catch 'S1'/'S2' from the CSV imports
+                        formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
 
                         list.push({ 
                             id: doc.id, 
