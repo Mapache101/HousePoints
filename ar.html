@@ -130,7 +130,7 @@
             "Physics", "Physical Education", "Maths / Kingsley", "Maths / Silvia", 
             "Maths / Guillermo", "English / Elvia", "English / Sara", 
             "English / Letty", "ICT", "Biology", "Art", "Music", "Global Perspectives / Ms Wei", 
-            "Global Perspectives / Ms Bell", "Business Studies", "Homeroom", "Recess / Recreo"
+            "Global Perspectives / Ms Bell", "Business Studies", "Homeroom"
         ];
 
         function StudentManager({ students }) {
@@ -760,6 +760,52 @@
                 return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             };
 
+            const handleExportCSV = () => {
+                if (processedArs.length === 0) return alert("No records to export.");
+                
+                const headers = ['Date', 'Time', 'Student Name', 'Grade', 'House', 'Type', 'Points Deducted', 'Subject', 'Reason', 'Teacher Email', 'Status'];
+
+                const escapeCSV = (val) => {
+                    if (val === null || val === undefined) return '""';
+                    return '"' + String(val).replace(/"/g, '""') + '"';
+                };
+
+                const rows = processedArs.map(ar => {
+                    let dateStr = '';
+                    let timeStr = '';
+                    if (ar.timestamp) {
+                        const d = new Date(ar.timestamp.seconds * 1000);
+                        dateStr = d.toLocaleDateString('en-GB'); // DD/MM/YYYY
+                        timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+                    const reasonStr = ar.reason === 'Other - Otro' ? (ar.customReason || 'Other') : ar.reason;
+                    
+                    return [
+                        escapeCSV(dateStr),
+                        escapeCSV(timeStr),
+                        escapeCSV(ar.studentName),
+                        escapeCSV(ar.grade),
+                        escapeCSV(HOUSES[ar.house]?.name || ar.house),
+                        escapeCSV(ar.type),
+                        escapeCSV(ar.type === 'DR' ? 30 : (ar.pointDeduction || 3)),
+                        escapeCSV(ar.subject),
+                        escapeCSV(reasonStr),
+                        escapeCSV(ar.teacherEmail),
+                        escapeCSV((ar.status || 'pending').toUpperCase())
+                    ].join(',');
+                });
+
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `SCIS_Incidents_Export_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
             return (
                 <div className="max-w-6xl mx-auto p-4 animate-fade-in">
                     <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
@@ -847,6 +893,14 @@
                                         title={sortDirection === 'asc' ? 'Ascending Order' : 'Descending Order'}
                                     >
                                         {sortDirection === 'asc' ? '↑' : '↓'}
+                                    </button>
+                                    <button 
+                                        onClick={handleExportCSV}
+                                        className="p-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-sm transition-colors font-bold flex justify-center items-center px-4"
+                                        title="Export current view to CSV"
+                                    >
+                                        <svg className="w-5 h-5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                        <span className="hidden md:inline">Export CSV</span>
                                     </button>
                                 </div>
                             </div>
