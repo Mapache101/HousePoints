@@ -169,7 +169,9 @@
             return (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                     {places.map((p) => {
-                        const houseIds = ranks[p.key] || [];
+                        const rawVal = ranks ? ranks[p.key] : [];
+                        const houseIds = Array.isArray(rawVal) ? rawVal : (typeof rawVal === 'string' && rawVal ? [rawVal] : []);
+                        
                         return (
                             <div key={p.key} className={`p-4 rounded-2xl border-2 ${p.border} ${p.bg} flex flex-col items-center justify-center text-center min-h-[110px]`}>
                                 <span className={`text-[11px] font-black uppercase tracking-widest mb-3 ${p.text}`}>{p.label}</span>
@@ -179,8 +181,8 @@
                                             const h = HOUSES.find(x => x.id === id);
                                             return (
                                                 <div key={id} className="flex flex-col items-center">
-                                                    <span className="text-3xl md:text-4xl drop-shadow-sm mb-1">{h.icon}</span>
-                                                    <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: h.color }}>{h.name}</span>
+                                                    <span className="text-3xl md:text-4xl drop-shadow-sm mb-1">{h?.icon}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: h?.color }}>{h?.name}</span>
                                                 </div>
                                             );
                                         })}
@@ -487,7 +489,15 @@
 
             const handleEdit = (submission) => {
                 setMonth(submission.month || submission.className || '');
-                setRanks(submission.ranks);
+                
+                // Safely convert any old string records into an array to avoid crash
+                setRanks({
+                    first: Array.isArray(submission.ranks?.first) ? submission.ranks.first : (typeof submission.ranks?.first === 'string' && submission.ranks.first ? [submission.ranks.first] : []),
+                    second: Array.isArray(submission.ranks?.second) ? submission.ranks.second : (typeof submission.ranks?.second === 'string' && submission.ranks.second ? [submission.ranks.second] : []),
+                    third: Array.isArray(submission.ranks?.third) ? submission.ranks.third : (typeof submission.ranks?.third === 'string' && submission.ranks.third ? [submission.ranks.third] : []),
+                    fourth: Array.isArray(submission.ranks?.fourth) ? submission.ranks.fourth : (typeof submission.ranks?.fourth === 'string' && submission.ranks.fourth ? [submission.ranks.fourth] : [])
+                });
+                
                 setEditingId(submission.id);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
@@ -654,12 +664,15 @@
 
                     const pointsMap = { first: 10, second: 7, third: 4, fourth: 3 };
                     const totalTally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
+                    
+                    // Safety check for older string-based formats
+                    const getSafeArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val ? [val] : []);
 
                     pendingRankings.forEach(submission => {
-                        (submission.ranks.first || []).forEach(hId => totalTally[hId] += pointsMap.first);
-                        (submission.ranks.second || []).forEach(hId => totalTally[hId] += pointsMap.second);
-                        (submission.ranks.third || []).forEach(hId => totalTally[hId] += pointsMap.third);
-                        (submission.ranks.fourth || []).forEach(hId => totalTally[hId] += pointsMap.fourth);
+                        getSafeArray(submission.ranks?.first).forEach(hId => totalTally[hId] += pointsMap.first);
+                        getSafeArray(submission.ranks?.second).forEach(hId => totalTally[hId] += pointsMap.second);
+                        getSafeArray(submission.ranks?.third).forEach(hId => totalTally[hId] += pointsMap.third);
+                        getSafeArray(submission.ranks?.fourth).forEach(hId => totalTally[hId] += pointsMap.fourth);
                         
                         const rankRef = doc(db, 'artifacts', appId, 'public', 'data', 'rankings', submission.id);
                         batch.update(rankRef, { processed: true });
@@ -716,8 +729,10 @@
                     let csvContent = "Date,Time,Teacher Email,Month/Class,1st Place (10pts),2nd Place (7pts),3rd Place (4pts),4th Place (3pts),Status\n";
 
                     const getHouseNamesText = (idsArray) => {
-                        if (!idsArray || idsArray.length === 0) return 'None';
-                        return idsArray.map(id => HOUSES.find(x => x.id === id)?.name || id).join(' & ');
+                        // Secure array conversion
+                        const safeArray = Array.isArray(idsArray) ? idsArray : (typeof idsArray === 'string' && idsArray ? [idsArray] : []);
+                        if (safeArray.length === 0) return 'None';
+                        return safeArray.map(id => HOUSES.find(x => x.id === id)?.name || id).join(' & ');
                     };
 
                     allRankings.forEach(r => {
@@ -754,10 +769,13 @@
             };
 
             const getHouseNamesWithIcons = (idsArray) => {
-                if (!idsArray || idsArray.length === 0) return <span className="text-slate-300 font-medium italic text-xs">None</span>;
+                // Secure array conversion
+                const safeArray = Array.isArray(idsArray) ? idsArray : (typeof idsArray === 'string' && idsArray ? [idsArray] : []);
+                if (safeArray.length === 0) return <span className="text-slate-300 font-medium italic text-xs">None</span>;
+                
                 return (
                     <div className="flex gap-1.5 flex-wrap">
-                        {idsArray.map(id => {
+                        {safeArray.map(id => {
                             const h = HOUSES.find(x => x.id === id);
                             return <span key={id} className="px-2 py-0.5 rounded text-white font-black text-[10px] uppercase shadow-sm border border-black/10 flex items-center gap-1 whitespace-nowrap" style={{backgroundColor: h?.color}}>{h?.icon} {h?.name}</span>;
                         })}
