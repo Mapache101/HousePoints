@@ -216,29 +216,33 @@
 
             return (
                 <div className="relative flex justify-center items-center h-16 w-16 z-20">
+                    {/* The main center emoji button */}
                     <div 
                         className={`text-5xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`}
-                        onClick={(e) => { 
-                            e.preventDefault();
-                            e.stopPropagation(); 
+                        onPointerDown={(e) => { 
+                            e.preventDefault(); // Stops touchstart from turning into a click event
+                            e.stopPropagation(); // Stops parent card from registering
                             onToggle(); 
                         }}
+                        onClick={(e) => e.stopPropagation()} // Backup safety net
                     >
                         {currentMood || '😐'}
                     </div>
                     
                     {isOpen && (
                         <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
-                            {/* Invisible background to capture clicks outside and close the menu */}
+                            {/* Invisible background to capture clicks outside and close the menu safely */}
                             <div 
                                 className="fixed inset-0 z-40 cursor-default" 
-                                onClick={(e) => { 
+                                onPointerDown={(e) => { 
                                     e.preventDefault();
                                     e.stopPropagation(); 
                                     onToggle(); 
                                 }}
+                                onClick={(e) => e.stopPropagation()}
                             ></div>
                             
+                            {/* The Radial Options */}
                             {MOOD_OPTIONS.map((emoji, i) => {
                                 // Calculate position in a circle (-90 to start from top)
                                 const angle = (i * (360 / MOOD_OPTIONS.length) - 90) * (Math.PI / 180);
@@ -248,18 +252,24 @@
                                 return (
                                     <div 
                                         key={emoji}
-                                        onClick={(e) => { 
-                                            e.preventDefault();
-                                            e.stopPropagation(); 
-                                            onSelect(emoji); 
-                                        }}
-                                        className="absolute flex items-center justify-center w-14 h-14 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-3xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200 z-50"
-                                        style={{ 
-                                            transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                                            animationDelay: `${i * 0.03}s` 
-                                        }}
+                                        className="absolute z-50 pointer-events-none"
+                                        style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
                                     >
-                                        {emoji}
+                                        <div
+                                            onPointerDown={(e) => { 
+                                                e.preventDefault();
+                                                e.stopPropagation(); 
+                                                onSelect(emoji); 
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="pointer-events-auto flex items-center justify-center w-14 h-14 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-3xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200"
+                                            style={{ 
+                                                animationDelay: `${i * 0.03}s`,
+                                                animationFillMode: 'both' // Ensures element starts invisible before delay
+                                            }}
+                                        >
+                                            {emoji}
+                                        </div>
                                     </div>
                                 );
                             })}
