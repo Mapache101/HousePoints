@@ -820,7 +820,7 @@
                                         <div key={r.id} className="bg-white p-5 rounded-2xl border-2 border-slate-100 shadow-sm flex flex-col gap-3">
                                             <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b-2 border-slate-50 pb-3 gap-2">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="font-black text-scis-navy text-sm uppercase">{r.teacherEmail.split('@')[0]}</span>
+                                                    <span className="font-black text-scis-navy text-sm uppercase">{(r.teacherEmail || 'Unknown').split('@')[0]}</span>
                                                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-blue-100">{r.month || r.className}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3 justify-between sm:justify-end">
@@ -884,7 +884,7 @@
                                                 allRankings.map(r => (
                                                     <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                                                         <td className="p-4 font-medium text-slate-500 whitespace-nowrap text-xs">{formatDateTime(r.timestamp)}</td>
-                                                        <td className="p-4 font-bold text-scis-navy">{r.teacherEmail.split('@')[0]}</td>
+                                                        <td className="p-4 font-bold text-scis-navy">{(r.teacherEmail || 'Unknown').split('@')[0]}</td>
                                                         <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{r.month || r.className}</span></td>
                                                         <td className="p-4">{getHouseNamesWithIcons(r.ranks.first)}</td>
                                                         <td className="p-4">{getHouseNamesWithIcons(r.ranks.second)}</td>
