@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCIS Attendance Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        scis: { navy: '#0C1D40', gold: '#FFF86B', grey: '#A8A6A5' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out forwards',
+                        'fade-in': 'fadeIn 0.2s ease-out forwards',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
+        .btn-press { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-press:active:not(:disabled) { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+            authDomain: "scis-house-points.firebaseapp.com",
+            projectId: "scis-house-points",
+            storageBucket: "scis-house-points.firebasestorage.app",
+            messagingSenderId: "929403398815",
+            appId: "1:929403398815:web:c6634925bfac5b665650aa"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
+
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, Timestamp, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+        }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- SCHEDULE TEMPLATE ---
+        // You can edit this array to perfectly match the image you uploaded. 
+        // Format: { day: 1-5 (Mon-Fri), start: 'HH:MM', end: 'HH:MM', class: 'Grade' }
+        const SCHEDULE = [
+            { day: 1, start: '08:00', end: '09:30', class: '1sA' },
+            { day: 1, start: '09:45', end: '11:15', class: '2sB' },
+            { day: 2, start: '08:00', end: '09:30', class: '3sA' },
+            // Add your exact schedule blocks here...
+        ];
+
+        function AttendanceTaker({ userEmail, students }) {
+            const [selectedClass, setSelectedClass] = useState('');
+            const [attendance, setAttendance] = useState({}); // { studentId: 'P' | 'A' }
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            
+            // Extract unique classes/grades from students
+            const GRADES = useMemo(() => {
+                const grades = new Set(students.map(s => s.grade).filter(Boolean));
+                return [...grades].sort();
+            }, [students]);
+
+            // Auto-detect class based on current time
+            useEffect(() => {
+                const now = new Date();
+                const day = now.getDay();
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                const currentBlock = SCHEDULE.find(s => s.day === day && timeStr >= s.start && timeStr <= s.end);
+                if (currentBlock && !selectedClass) {
+                    setSelectedClass(currentBlock.class);
+                }
+            }, []);
+
+            // Filter students for the selected class
+            const currentStudents = useMemo(() => {
+                if (!selectedClass) return [];
+                return students.filter(s => s.grade === selectedClass);
+            }, [selectedClass, students]);
+
+            // Reset attendance when class changes
+            useEffect(() => {
+                setAttendance({});
+            }, [selectedClass]);
+
+            const markAllPresent = () => {
+                const newAtt = {};
+                currentStudents.forEach(s => newAtt[s.id] = 'P');
+                setAttendance(newAtt);
+            };
+
+            const toggleStudent = (id, status) => {
+                setAttendance(prev => ({ ...prev, [id]: status }));
+            };
+
+            const handleSubmit = async () => {
+                if (Object.keys(attendance).length !== currentStudents.length) {
+                    return alert("Please mark attendance (Present or Absent) for all students before submitting.");
+                }
+
+                setIsSubmitting(true);
+                try {
+                    const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
+                    
+                    const recordsToSave = currentStudents.map(s => ({
+                        studentId: s.id,
+                        studentName: s.displayName,
+                        status: attendance[s.id]
+                    }));
+
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), {
+                        class: selectedClass,
+                        teacherEmail: userEmail || "teacher@scis-bo.com",
+                        timestamp: Timestamp.now(),
+                        records: recordsToSave,
+                        presentCount: Object.values(attendance).filter(v => v === 'P').length,
+                        absentCount: Object.values(attendance).filter(v => v === 'A').length
+                    });
+                    
+                    alert("✅ Attendance submitted successfully!");
+                    setSelectedClass('');
+                    setAttendance({});
+                } catch (error) {
+                    console.error("Error saving attendance:", error);
+                    alert("Failed to submit attendance.");
+                }
+                setIsSubmitting(false);
+            };
+
+            return (
+                <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                            <div>
+                                <h2 className="text-2xl font-display font-black text-scis-navy uppercase tracking-tight">Log Attendance</h2>
+                                <p className="text-slate-500 text-sm font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            </div>
+                            <select 
+                                value={selectedClass} 
+                                onChange={e => setSelectedClass(e.target.value)}
+                                className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-scis-navy font-bold text-scis-navy appearance-none shadow-inner"
+                            >
+                                <option value="">-- Select Class --</option>
+                                {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+
+                        {selectedClass && currentStudents.length > 0 && (
+                            <div className="animate-slide-up">
+                                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-4">
+                                    <span className="font-bold text-slate-700">Roster ({currentStudents.length} Students)</span>
+                                    <button 
+                                        onClick={markAllPresent}
+                                        className="bg-scis-navy text-scis-gold px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-[#122859] transition-colors btn-press"
+                                    >
+                                        Mark All Present
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2 mb-8 max-h-[500px] overflow-y-auto pr-2">
+                                    {currentStudents.map(student => (
+                                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors ${attendance[student.id] === 'P' ? 'bg-green-50 border-green-200' : attendance[student.id] === 'A' ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
+                                            <span className="font-bold text-slate-700 text-sm truncate pr-4">{student.displayName}</span>
+                                            <div className="flex gap-2 shrink-0">
+                                                <button 
+                                                    onClick={() => toggleStudent(student.id, 'P')}
+                                                    className={`w-10 h-10 rounded-lg font-black text-lg btn-press flex items-center justify-center transition-all ${attendance[student.id] === 'P' ? 'bg-green-500 text-white shadow-md scale-105' : 'bg-slate-100 text-slate-400 hover:bg-green-100 hover:text-green-600'}`}
+                                                >
+                                                    P
+                                                </button>
+                                                <button 
+                                                    onClick={() => toggleStudent(student.id, 'A')}
+                                                    className={`w-10 h-10 rounded-lg font-black text-lg btn-press flex items-center justify-center transition-all ${attendance[student.id] === 'A' ? 'bg-red-500 text-white shadow-md scale-105' : 'bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600'}`}
+                                                >
+                                                    A
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <button 
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    className={`w-full py-4 rounded-2xl font-display font-black text-lg tracking-widest uppercase shadow-xl transition-colors btn-press ${Object.keys(attendance).length === currentStudents.length ? 'bg-scis-navy text-scis-gold hover:bg-[#122859]' : 'bg-slate-200 text-slate-400'}`}
+                                >
+                                    {isSubmitting ? 'Saving...' : 'Submit Attendance'}
+                                </button>
+                            </div>
+                        )}
+                        
+                        {selectedClass && currentStudents.length === 0 && (
+                            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                                <p className="text-slate-500 font-medium">No students found for class {selectedClass}.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function AttendanceHistory({ userEmail }) {
+            const [logs, setLogs] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'));
+                
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const list = [];
+                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    // Sort descending by date
+                    list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                    setLogs(list);
+                    setLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+            const handleExportCSV = () => {
+                if (logs.length === 0) return alert("No logs to export.");
+                
+                // Detailed CSV including individual student records
+                let csvContent = "Date,Time,Class,Teacher,Student Name,Status\n";
+
+                logs.forEach(log => {
+                    const dateObj = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
+                    const dateStr = dateObj ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` : '';
+                    const timeStr = dateObj ? `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}` : '';
+                    
+                    const tClass = `"${log.class || ''}"`;
+                    const tTeacher = `"${(log.teacherEmail || 'Unknown').split('@')[0]}"`;
+
+                    if (log.records && Array.isArray(log.records)) {
+                        log.records.forEach(rec => {
+                            const sName = `"${(rec.studentName || 'Unknown').replace(/"/g, '""')}"`;
+                            const sStatus = rec.status === 'P' ? 'Present' : 'Absent';
+                            csvContent += `${dateStr},${timeStr},${tClass},${tTeacher},${sName},${sStatus}\n`;
+                        });
+                    }
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `SCIS_Attendance_Log_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const formatDate = (ts) => {
+                if (!ts) return '';
+                const d = new Date(ts.seconds * 1000);
+                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                            <div>
+                                <h2 className="text-2xl font-display font-black text-scis-navy uppercase tracking-tight">Attendance Ledger</h2>
+                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Review past records</p>
+                            </div>
+                            <button 
+                                onClick={handleExportCSV}
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Export Data to Excel
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <div className="p-10 text-center text-slate-500">Loading records...</div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                                <p className="text-slate-400 font-medium">No attendance logs found in the database.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
+                                <table className="w-full text-left border-collapse min-w-[600px]">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200">
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Date / Time</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Class</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Teacher</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Present</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Absent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {logs.map(log => (
+                                            <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                                                <td className="p-4 whitespace-nowrap text-slate-500 font-medium text-xs">{formatDate(log.timestamp)}</td>
+                                                <td className="p-4 font-black text-scis-navy">{log.class}</td>
+                                                <td className="p-4 font-bold text-slate-700">{(log.teacherEmail || 'Unknown').split('@')[0]}</td>
+                                                <td className="p-4">
+                                                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-black text-xs">{log.presentCount || 0}</span>
+                                                </td>
+                                                <td className="p-4">
+                                                    {log.absentCount > 0 ? (
+                                                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-lg font-black text-xs">{log.absentCount}</span>
+                                                    ) : (
+                                                        <span className="text-slate-300 font-bold px-3 py-1">-</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            if (!window.FirebaseDB) return <div className="flex h-screen items-center justify-center font-display font-black text-xl">Loading...</div>;
+
+            const [user, setUser] = useState(null);
+            const [currentTab, setCurrentTab] = useState('take'); // 'take' | 'history'
+            const [authLoaded, setAuthLoaded] = useState(false);
+            const [students, setStudents] = useState([]);
+
+            const userEmail = user?.email ? user.email.toLowerCase() : (user?.isAnonymous ? 'teacher@scis-bo.com' : null);
+
+            useEffect(() => {
+                const { auth, db, collection, query, onSnapshot, appId, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseDB;
+                
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else if (!window.location.hostname.includes('github.io') && window.location.hostname !== 'localhost') {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) { console.error("Auth init failed:", e); }
+                };
+
+                initAuth();
+
+                const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    setAuthLoaded(true);
+                });
+
+                // Fetch students globally
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+                const unsubscribeStudents = onSnapshot(q, (snapshot) => {
+                    const list = [];
+                    snapshot.forEach(doc => {
+                        let docData = doc.data();
+                        let formattedGrade = docData.grade || '';
+                        // Normalize classes just like in AR portal
+                        formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
+                        list.push({ id: doc.id, ...docData, grade: formattedGrade, displayName: (docData.name || '').toUpperCase() });
+                    });
+                    list.sort((a,b) => a.name.localeCompare(b.name));
+                    setStudents(list);
+                });
+
+                return () => {
+                    unsubscribeAuth();
+                    unsubscribeStudents();
+                };
+            }, []);
+
+            const handleLogin = async () => {
+                const { auth, signInWithPopup, OAuthProvider } = window.FirebaseDB;
+                const provider = new OAuthProvider('microsoft.com');
+                provider.setCustomParameters({ tenant: 'scis-bo.com' });
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Login failed:", error);
+                }
+            };
+
+            const handleLogout = async () => {
+                const { auth, signOut } = window.FirebaseDB;
+                await signOut(auth);
+            };
+
+            if (!authLoaded) return <div className="flex h-screen items-center justify-center font-display font-black text-xl animate-pulse">Connecting...</div>;
+
+            if (!user || (!user.email && !user.isAnonymous)) {
+                return (
+                    <div className="flex h-screen flex-col items-center justify-center bg-[#0C1D40] p-6 text-center">
+                        <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
+                            <div className="bg-scis-gold text-scis-navy w-16 h-16 mx-auto flex items-center justify-center rounded-2xl shadow-inner font-display font-black text-4xl mb-6">📝</div>
+                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Attendance</h2>
+                            <p className="text-slate-500 text-sm font-medium mb-8">Sign in with your school email to access your class roster.</p>
+                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                                <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#7fba00" d="M11 0h10v10H11z"/><path fill="#00a4ef" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
+                                Sign In with Microsoft
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen">
+                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 py-3 sticky top-0 z-40 shadow-md">
+                        <div className="max-w-6xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-scis-gold text-scis-navy w-8 h-8 flex items-center justify-center rounded-lg shadow-inner font-display font-black text-lg">📝</div>
+                                <div>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block">SCIS Attendance</h1>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden">Roster</h1>
+                                    {userEmail && <div className="text-[10px] text-scis-gold font-medium">{userEmail}</div>}
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-white/10 p-1 rounded-xl mr-2">
+                                    <button onClick={() => setCurrentTab('take')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'take' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Take</button>
+                                    <button onClick={() => setCurrentTab('history')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'history' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>History</button>
+                                </div>
+                                <button onClick={handleLogout} className="text-white hover:text-red-400 p-2 transition-colors" title="Sign Out">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="pt-6 pb-24">
+                        {currentTab === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <AttendanceHistory userEmail={userEmail} />}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
