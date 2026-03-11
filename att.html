@@ -33,9 +33,9 @@
                             '100%': { opacity: '1' },
                         },
                         pop: {
-                            '0%': { transform: 'scale(0.95)' },
-                            '50%': { transform: 'scale(1.05)' },
-                            '100%': { transform: 'scale(1)' },
+                            '0%': { transform: 'scale(0.5)', opacity: '0' },
+                            '80%': { transform: 'scale(1.1)', opacity: '1' },
+                            '100%': { transform: 'scale(1)', opacity: '1' },
                         },
                         press3d: {
                             '0%': { transform: 'scale(1)' },
@@ -54,7 +54,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Added Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
     <style>
@@ -112,18 +111,13 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- CONSTANTS ---
-        const HOUSES = {
-            'centaurs': { name: 'Centaurs', icon: '🏹' },
-            'pegasus': { name: 'Pegasus', icon: '🪽' },
-            'titans': { name: 'Titans', icon: '⚡' },
-            'unicorns': { name: 'Unicorns', icon: '🦄' }
-        };
-
         const SCHEDULE = [
             { day: 1, start: '08:00', end: '09:30', class: '1sA' },
             { day: 1, start: '09:45', end: '11:15', class: '2sB' },
             { day: 2, start: '08:00', end: '09:30', class: '3sA' },
         ];
+
+        const MOOD_OPTIONS = ['😐', '🤔', '🥰', '😄', '🙄', '🕵️', '🤯'];
 
         // --- 3D BACKGROUND COMPONENT ---
         function ThreeBackground() {
@@ -184,22 +178,17 @@
                 window.addEventListener('mousemove', handleMove);
                 window.addEventListener('touchmove', handleMove);
 
-                // Animation Loop
                 const animate = () => {
                     requestAnimationFrame(animate);
-                    
                     targetX = mouseX * 0.001;
                     targetY = mouseY * 0.001;
-                    
                     particlesMesh.rotation.y += 0.001 + (targetX - particlesMesh.rotation.y) * 0.05;
                     particlesMesh.rotation.x += 0.0005 + (targetY - particlesMesh.rotation.x) * 0.05;
-                    
                     renderer.render(scene, camera);
                 };
                 
                 animate();
 
-                // Handle Resize
                 const handleResize = () => {
                     camera.aspect = window.innerWidth / window.innerHeight;
                     camera.updateProjectionMatrix();
@@ -221,11 +210,53 @@
             return <div ref={mountRef} className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none bg-scis-navy"></div>;
         }
 
+        // --- RADIAL MOOD PICKER COMPONENT ---
+        function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
+            const radius = 65; // Distance of emojis from center
+
+            return (
+                <div className="relative flex justify-center items-center h-12 w-12 z-20" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+                    <div className={`text-4xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`}>
+                        {currentMood || '👤'}
+                    </div>
+                    
+                    {isOpen && (
+                        <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
+                            {/* Invisible background to capture clicks outside and close the menu */}
+                            <div className="fixed inset-0 w-screen h-screen cursor-default" style={{ left: '-50vw', top: '-50vh' }} onClick={(e) => { e.stopPropagation(); onToggle(); }}></div>
+                            
+                            {MOOD_OPTIONS.map((emoji, i) => {
+                                // Calculate position in a circle (-90 to start from top)
+                                const angle = (i * (360 / MOOD_OPTIONS.length) - 90) * (Math.PI / 180);
+                                const x = Math.cos(angle) * radius;
+                                const y = Math.sin(angle) * radius;
+                                
+                                return (
+                                    <div 
+                                        key={emoji}
+                                        onClick={(e) => { e.stopPropagation(); onSelect(emoji); }}
+                                        className="absolute flex items-center justify-center w-12 h-12 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-2xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200"
+                                        style={{ 
+                                            transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                                            animationDelay: `${i * 0.03}s` 
+                                        }}
+                                    >
+                                        {emoji}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
         // --- ATTENDANCE KIOSK ---
         function AttendanceTaker({ userEmail, students }) {
             const [selectedClass, setSelectedClass] = useState('');
             const [attendance, setAttendance] = useState({}); // { studentId: 'P' | 'L' | 'A' }
-            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [moods, setMoods] = useState({}); // { studentId: emoji }
+            const [openMoodMenuId, setOpenMoodMenuId] = useState(null); // Tracks which student has the radial menu open
             const [animatingId, setAnimatingId] = useState(null);
             
             const GRADES = useMemo(() => {
@@ -250,6 +281,8 @@
 
             useEffect(() => {
                 setAttendance({});
+                setMoods({});
+                setOpenMoodMenuId(null);
             }, [selectedClass]);
 
             const markAllPresent = () => {
@@ -288,7 +321,8 @@
                     const recordsToSave = currentStudents.map(s => ({
                         studentId: s.id,
                         studentName: s.displayName,
-                        status: attendance[s.id]
+                        status: attendance[s.id],
+                        mood: moods[s.id] || '😐' // Save the mood data for analytics!
                     }));
 
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), {
@@ -304,6 +338,7 @@
                     alert("✨ Attendance locked and saved! Great job.");
                     setSelectedClass('');
                     setAttendance({});
+                    setMoods({});
                 } catch (error) {
                     console.error("Error saving attendance:", error);
                     alert("Failed to submit attendance.");
@@ -316,10 +351,10 @@
             return (
                 <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
                     {/* Header Controls */}
-                    <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 animate-fade-in z-10 relative">
+                    <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 animate-fade-in z-20 relative">
                         <div>
                             <h2 className="text-3xl md:text-4xl font-display font-black text-scis-navy uppercase tracking-tight drop-shadow-sm">Class Roster</h2>
-                            <p className="text-slate-600 font-bold uppercase tracking-widest text-xs mt-1">Tap your name to mark presence</p>
+                            <p className="text-slate-600 font-bold uppercase tracking-widest text-xs mt-1">Select your mood & mark presence</p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4 items-center w-full md:w-auto">
                             <select 
@@ -344,11 +379,12 @@
 
                     {/* Kiosk Grid */}
                     {selectedClass && currentStudents.length > 0 && (
-                        <div className="animate-slide-up z-10 relative">
+                        <div className="animate-slide-up relative">
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-8">
                                 {currentStudents.map(student => {
                                     const status = attendance[student.id];
                                     const isAnimating = animatingId === student.id;
+                                    const isMenuOpen = openMoodMenuId === student.id;
                                     
                                     let cardStyle = "bg-white/80 border-white text-scis-navy hover:bg-white border-b-slate-300";
                                     let statusLabel = "Tap to Mark";
@@ -369,24 +405,35 @@
                                     }
 
                                     return (
-                                        <button 
+                                        <div 
                                             key={student.id}
                                             onClick={() => cycleStudent(student.id)}
                                             className={`
                                                 relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-3xl border-2 border-b-[6px] shadow-xl backdrop-blur-md
-                                                transition-all duration-150 min-h-[110px] overflow-hidden active:border-b-2 active:translate-y-[4px] select-none
+                                                transition-all duration-150 min-h-[130px] active:border-b-2 active:translate-y-[4px] select-none cursor-pointer
                                                 ${cardStyle}
                                                 ${isAnimating ? 'animate-press3d' : ''}
+                                                ${isMenuOpen ? 'z-50' : 'z-10'}
                                             `}
                                         >
                                             {/* Flash Effect on Click */}
                                             {isAnimating && <div className="absolute inset-0 bg-white animate-flash rounded-3xl pointer-events-none z-0"></div>}
                                             
-                                            {/* Top Glass Highlight for 3D Pop */}
-                                            <div className="absolute top-0 left-0 w-full h-1/3 bg-white/30 rounded-t-3xl pointer-events-none"></div>
+                                            {/* Top Glass Highlight for 3D Pop (ensuring it matches rounded corners to prevent clipping) */}
+                                            <div className="absolute top-0 left-0 w-full h-1/3 bg-white/30 rounded-t-[1.3rem] pointer-events-none"></div>
 
-                                            <span className="text-2xl sm:text-3xl mb-1 drop-shadow-md z-10">{HOUSES[student.house]?.icon || '👤'}</span>
-                                            <span className="font-black text-xs sm:text-sm leading-tight text-center truncate w-full px-1 z-10 drop-shadow-sm">{student.displayName}</span>
+                                            {/* Radial Mood Menu Component */}
+                                            <RadialMoodPicker 
+                                                currentMood={moods[student.id]}
+                                                isOpen={isMenuOpen}
+                                                onToggle={() => setOpenMoodMenuId(isMenuOpen ? null : student.id)}
+                                                onSelect={(emoji) => {
+                                                    setMoods(prev => ({...prev, [student.id]: emoji}));
+                                                    setOpenMoodMenuId(null);
+                                                }}
+                                            />
+
+                                            <span className="font-black text-xs sm:text-sm leading-tight text-center truncate w-full px-1 z-10 drop-shadow-sm mt-3">{student.displayName}</span>
                                             
                                             {/* Status Badge */}
                                             <div className="mt-auto pt-2 z-10">
@@ -394,13 +441,13 @@
                                                     {statusIcon} {statusLabel}
                                                 </span>
                                             </div>
-                                        </button>
+                                        </div>
                                     );
                                 })}
                             </div>
 
                             {/* Sticky Footer for Submission */}
-                            <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-scis-navy/80 backdrop-blur-xl border-t border-white/10 z-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-scis-navy/80 backdrop-blur-xl border-t border-white/10 z-[60] flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="text-white font-bold">
                                     {missingCount > 0 ? (
                                         <span className="text-scis-gold animate-pulse flex items-center gap-2">⚠️ {missingCount} student(s) still need to tap.</span>
