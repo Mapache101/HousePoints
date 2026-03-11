@@ -197,9 +197,12 @@
                 };
 
                 ars.forEach(ar => {
-                    // Subjects
-                    const subj = ar.subject || 'Unknown';
-                    counts.subjects[subj] = (counts.subjects[subj] || 0) + 1;
+                    // Subjects (Normalized to Uppercase)
+                    const subj = (ar.subject || 'Unknown').trim().toUpperCase();
+                    // Ignore Legacy Migration from the Subjects Chart
+                    if (!subj.includes('LEGACY MIGRATION') && !subj.includes('MIGRATION ADMIN')) {
+                        counts.subjects[subj] = (counts.subjects[subj] || 0) + 1;
+                    }
 
                     // Grades
                     const grd = ar.grade || 'Unknown';
@@ -214,7 +217,11 @@
                     let reason = ar.reason || 'Unknown';
                     if (reason === 'Other - Otro') reason = 'Other';
                     else reason = reason.split(' - ')[0]; // Take English part only
-                    counts.reasons[reason] = (counts.reasons[reason] || 0) + 1;
+                    
+                    // Ignore Legacy Migration from the Reasons Chart
+                    if (!reason.toUpperCase().includes('LEGACY MIGRATION')) {
+                        counts.reasons[reason] = (counts.reasons[reason] || 0) + 1;
+                    }
 
                     // Time of Day
                     if (ar.timestamp) {
