@@ -17,17 +17,23 @@
                         display: ['Outfit', 'sans-serif'],
                     },
                     animation: {
-                        'slide-up': 'slideUp 0.3s ease-out forwards',
-                        'fade-in': 'fadeIn 0.2s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'pop': 'pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
                     },
                     keyframes: {
                         slideUp: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '0%': { transform: 'translateY(40px)', opacity: '0' },
                             '100%': { transform: 'translateY(0)', opacity: '1' },
                         },
                         fadeIn: {
                             '0%': { opacity: '0' },
                             '100%': { opacity: '1' },
+                        },
+                        pop: {
+                            '0%': { transform: 'scale(0.95)' },
+                            '50%': { transform: 'scale(1.05)' },
+                            '100%': { transform: 'scale(1)' },
                         }
                     }
                 }
@@ -37,12 +43,29 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <!-- Added Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: #0C1D40; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
         h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
-        .btn-press { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
-        .btn-press:active:not(:disabled) { transform: scale(0.95); }
+        
+        /* Smooth interactions for touch */
+        .btn-press { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-press:active:not(:disabled) { transform: scale(0.92); }
+        
+        /* Hide scrollbars for cleaner kiosk look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -75,48 +98,145 @@
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- SCHEDULE TEMPLATE ---
-        // You can edit this array to perfectly match the image you uploaded. 
-        // Format: { day: 1-5 (Mon-Fri), start: 'HH:MM', end: 'HH:MM', class: 'Grade' }
+        // --- CONSTANTS ---
+        const HOUSES = {
+            'centaurs': { name: 'Centaurs', icon: '🏹' },
+            'pegasus': { name: 'Pegasus', icon: '🪽' },
+            'titans': { name: 'Titans', icon: '⚡' },
+            'unicorns': { name: 'Unicorns', icon: '🦄' }
+        };
+
         const SCHEDULE = [
             { day: 1, start: '08:00', end: '09:30', class: '1sA' },
             { day: 1, start: '09:45', end: '11:15', class: '2sB' },
             { day: 2, start: '08:00', end: '09:30', class: '3sA' },
-            // Add your exact schedule blocks here...
         ];
 
+        // --- 3D BACKGROUND COMPONENT ---
+        function ThreeBackground() {
+            const mountRef = useRef(null);
+
+            useEffect(() => {
+                const currentMount = mountRef.current;
+                if (!currentMount || !window.THREE) return;
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                currentMount.appendChild(renderer.domElement);
+
+                // Create Particle System
+                const particlesGeometry = new THREE.BufferGeometry();
+                const particlesCount = 1500;
+                const posArray = new Float32Array(particlesCount * 3);
+                
+                for(let i = 0; i < particlesCount * 3; i++) {
+                    posArray[i] = (Math.random() - 0.5) * 15;
+                }
+                
+                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                
+                const material = new THREE.PointsMaterial({
+                    size: 0.03,
+                    color: '#FFF86B', // SCIS Gold
+                    transparent: true,
+                    opacity: 0.8,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                const particlesMesh = new THREE.Points(particlesGeometry, material);
+                scene.add(particlesMesh);
+
+                camera.position.z = 3;
+
+                // Mouse/Touch Interaction Variables
+                let mouseX = 0;
+                let mouseY = 0;
+                let targetX = 0;
+                let targetY = 0;
+
+                const windowHalfX = window.innerWidth / 2;
+                const windowHalfY = window.innerHeight / 2;
+
+                const handleMove = (event) => {
+                    const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+                    const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+                    mouseX = (clientX - windowHalfX);
+                    mouseY = (clientY - windowHalfY);
+                };
+
+                window.addEventListener('mousemove', handleMove);
+                window.addEventListener('touchmove', handleMove);
+
+                // Animation Loop
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    
+                    targetX = mouseX * 0.001;
+                    targetY = mouseY * 0.001;
+                    
+                    particlesMesh.rotation.y += 0.001 + (targetX - particlesMesh.rotation.y) * 0.05;
+                    particlesMesh.rotation.x += 0.0005 + (targetY - particlesMesh.rotation.x) * 0.05;
+                    
+                    renderer.render(scene, camera);
+                };
+                
+                animate();
+
+                // Handle Resize
+                const handleResize = () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                };
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    window.removeEventListener('mousemove', handleMove);
+                    window.removeEventListener('touchmove', handleMove);
+                    if (currentMount) currentMount.removeChild(renderer.domElement);
+                    particlesGeometry.dispose();
+                    material.dispose();
+                    renderer.dispose();
+                };
+            }, []);
+
+            return <div ref={mountRef} className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none bg-scis-navy"></div>;
+        }
+
+        // --- ATTENDANCE KIOSK ---
         function AttendanceTaker({ userEmail, students }) {
             const [selectedClass, setSelectedClass] = useState('');
             const [attendance, setAttendance] = useState({}); // { studentId: 'P' | 'A' }
             const [isSubmitting, setIsSubmitting] = useState(false);
+            const [animatingId, setAnimatingId] = useState(null);
             
-            // Extract unique classes/grades from students
             const GRADES = useMemo(() => {
                 const grades = new Set(students.map(s => s.grade).filter(Boolean));
                 return [...grades].sort();
             }, [students]);
 
-            // Auto-detect class based on current time
             useEffect(() => {
                 const now = new Date();
                 const day = now.getDay();
                 const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                
                 const currentBlock = SCHEDULE.find(s => s.day === day && timeStr >= s.start && timeStr <= s.end);
                 if (currentBlock && !selectedClass) {
                     setSelectedClass(currentBlock.class);
                 }
             }, []);
 
-            // Filter students for the selected class
             const currentStudents = useMemo(() => {
                 if (!selectedClass) return [];
                 return students.filter(s => s.grade === selectedClass);
             }, [selectedClass, students]);
 
-            // Reset attendance when class changes
             useEffect(() => {
                 setAttendance({});
             }, [selectedClass]);
@@ -127,13 +247,26 @@
                 setAttendance(newAtt);
             };
 
-            const toggleStudent = (id, status) => {
-                setAttendance(prev => ({ ...prev, [id]: status }));
+            // Gamified Cycle: Null -> Present -> Absent -> Null
+            const cycleStudent = (id) => {
+                setAnimatingId(id);
+                setTimeout(() => setAnimatingId(null), 300); // clear animation class
+
+                setAttendance(prev => {
+                    const current = prev[id];
+                    if (current === 'P') return { ...prev, [id]: 'A' };
+                    if (current === 'A') {
+                        const next = {...prev};
+                        delete next[id];
+                        return next;
+                    }
+                    return { ...prev, [id]: 'P' };
+                });
             };
 
             const handleSubmit = async () => {
                 if (Object.keys(attendance).length !== currentStudents.length) {
-                    return alert("Please mark attendance (Present or Absent) for all students before submitting.");
+                    return alert("Please ensure every student is marked (Present or Absent) before submitting.");
                 }
 
                 setIsSubmitting(true);
@@ -155,7 +288,7 @@
                         absentCount: Object.values(attendance).filter(v => v === 'A').length
                     });
                     
-                    alert("✅ Attendance submitted successfully!");
+                    alert("✨ Attendance locked and saved! Great job.");
                     setSelectedClass('');
                     setAttendance({});
                 } catch (error) {
@@ -165,78 +298,116 @@
                 setIsSubmitting(false);
             };
 
+            const missingCount = currentStudents.length - Object.keys(attendance).length;
+
             return (
-                <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                            <div>
-                                <h2 className="text-2xl font-display font-black text-scis-navy uppercase tracking-tight">Log Attendance</h2>
-                                <p className="text-slate-500 text-sm font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                            </div>
+                <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+                    {/* Header Controls */}
+                    <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 animate-fade-in z-10 relative">
+                        <div>
+                            <h2 className="text-3xl md:text-4xl font-display font-black text-scis-navy uppercase tracking-tight drop-shadow-sm">Class Roster</h2>
+                            <p className="text-slate-600 font-bold uppercase tracking-widest text-xs mt-1">Tap your name to mark presence</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 items-center w-full md:w-auto">
                             <select 
                                 value={selectedClass} 
                                 onChange={e => setSelectedClass(e.target.value)}
-                                className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-scis-navy font-bold text-scis-navy appearance-none shadow-inner"
+                                className="w-full sm:w-auto p-4 bg-white/90 border-2 border-white/50 rounded-2xl focus:outline-none focus:ring-4 focus:ring-scis-gold font-black text-scis-navy text-xl appearance-none shadow-lg cursor-pointer transition-all hover:bg-white"
                             >
                                 <option value="">-- Select Class --</option>
                                 {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
+                            
+                            {selectedClass && currentStudents.length > 0 && (
+                                <button 
+                                    onClick={markAllPresent}
+                                    className="w-full sm:w-auto bg-scis-navy text-scis-gold px-6 py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-[#122859] btn-press border border-scis-gold/30"
+                                >
+                                    Mark All Present
+                                </button>
+                            )}
                         </div>
+                    </div>
 
-                        {selectedClass && currentStudents.length > 0 && (
-                            <div className="animate-slide-up">
-                                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-4">
-                                    <span className="font-bold text-slate-700">Roster ({currentStudents.length} Students)</span>
-                                    <button 
-                                        onClick={markAllPresent}
-                                        className="bg-scis-navy text-scis-gold px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-[#122859] transition-colors btn-press"
-                                    >
-                                        Mark All Present
-                                    </button>
-                                </div>
+                    {/* Kiosk Grid */}
+                    {selectedClass && currentStudents.length > 0 && (
+                        <div className="animate-slide-up z-10 relative">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-8">
+                                {currentStudents.map(student => {
+                                    const status = attendance[student.id];
+                                    const isAnimating = animatingId === student.id;
+                                    
+                                    let cardStyle = "bg-white/80 border-white/50 text-scis-navy hover:bg-white";
+                                    let statusLabel = "Tap to Mark";
+                                    let statusIcon = "";
+                                    
+                                    if (status === 'P') {
+                                        cardStyle = "bg-green-500 border-green-400 text-white shadow-green-500/50";
+                                        statusLabel = "PRESENT";
+                                        statusIcon = "✅";
+                                    } else if (status === 'A') {
+                                        cardStyle = "bg-red-500 border-red-400 text-white shadow-red-500/50";
+                                        statusLabel = "ABSENT";
+                                        statusIcon = "❌";
+                                    }
 
-                                <div className="space-y-2 mb-8 max-h-[500px] overflow-y-auto pr-2">
-                                    {currentStudents.map(student => (
-                                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors ${attendance[student.id] === 'P' ? 'bg-green-50 border-green-200' : attendance[student.id] === 'A' ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
-                                            <span className="font-bold text-slate-700 text-sm truncate pr-4">{student.displayName}</span>
-                                            <div className="flex gap-2 shrink-0">
-                                                <button 
-                                                    onClick={() => toggleStudent(student.id, 'P')}
-                                                    className={`w-10 h-10 rounded-lg font-black text-lg btn-press flex items-center justify-center transition-all ${attendance[student.id] === 'P' ? 'bg-green-500 text-white shadow-md scale-105' : 'bg-slate-100 text-slate-400 hover:bg-green-100 hover:text-green-600'}`}
-                                                >
-                                                    P
-                                                </button>
-                                                <button 
-                                                    onClick={() => toggleStudent(student.id, 'A')}
-                                                    className={`w-10 h-10 rounded-lg font-black text-lg btn-press flex items-center justify-center transition-all ${attendance[student.id] === 'A' ? 'bg-red-500 text-white shadow-md scale-105' : 'bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600'}`}
-                                                >
-                                                    A
-                                                </button>
+                                    return (
+                                        <button 
+                                            key={student.id}
+                                            onClick={() => cycleStudent(student.id)}
+                                            className={`
+                                                relative flex flex-col items-center justify-center p-4 sm:p-6 rounded-[2rem] border-2 shadow-lg backdrop-blur-sm
+                                                transition-all duration-200 btn-press min-h-[140px]
+                                                ${cardStyle}
+                                                ${isAnimating ? 'animate-pop' : ''}
+                                            `}
+                                        >
+                                            <span className="text-3xl sm:text-4xl mb-2 drop-shadow-md">{HOUSES[student.house]?.icon || '👤'}</span>
+                                            <span className="font-black text-sm sm:text-base leading-tight text-center truncate w-full px-1">{student.displayName}</span>
+                                            
+                                            {/* Status Badge */}
+                                            <div className="mt-auto pt-3">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${status ? 'bg-black/20 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                                    {statusIcon} {statusLabel}
+                                                </span>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
+                            {/* Sticky Footer for Submission */}
+                            <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-scis-navy/80 backdrop-blur-xl border-t border-white/10 z-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div className="text-white font-bold">
+                                    {missingCount > 0 ? (
+                                        <span className="text-scis-gold animate-pulse flex items-center gap-2">⚠️ {missingCount} student(s) still need to tap.</span>
+                                    ) : (
+                                        <span className="text-green-400 flex items-center gap-2">✅ All students accounted for!</span>
+                                    )}
+                                </div>
                                 <button 
                                     onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className={`w-full py-4 rounded-2xl font-display font-black text-lg tracking-widest uppercase shadow-xl transition-colors btn-press ${Object.keys(attendance).length === currentStudents.length ? 'bg-scis-navy text-scis-gold hover:bg-[#122859]' : 'bg-slate-200 text-slate-400'}`}
+                                    disabled={isSubmitting || missingCount > 0}
+                                    className={`w-full sm:w-auto px-10 py-4 rounded-2xl font-display font-black text-xl tracking-widest uppercase shadow-2xl transition-all btn-press ${missingCount === 0 ? 'bg-scis-gold text-scis-navy hover:scale-105' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}
                                 >
-                                    {isSubmitting ? 'Saving...' : 'Submit Attendance'}
+                                    {isSubmitting ? 'Locking...' : 'Lock Attendance'}
                                 </button>
                             </div>
-                        )}
-                        
-                        {selectedClass && currentStudents.length === 0 && (
-                            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                                <p className="text-slate-500 font-medium">No students found for class {selectedClass}.</p>
-                            </div>
-                        )}
-                    </div>
+                            {/* Spacer to prevent grid from hiding behind fixed footer */}
+                            <div className="h-24"></div> 
+                        </div>
+                    )}
+                    
+                    {selectedClass && currentStudents.length === 0 && (
+                        <div className="text-center py-20 glass-panel rounded-3xl border border-dashed border-white/50 z-10 relative">
+                            <p className="text-scis-navy font-black text-xl">No students found for {selectedClass}.</p>
+                        </div>
+                    )}
                 </div>
             );
         }
 
+        // --- ATTENDANCE HISTORY ---
         function AttendanceHistory({ userEmail }) {
             const [logs, setLogs] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -248,7 +419,6 @@
                 const unsubscribe = onSnapshot(q, (snapshot) => {
                     const list = [];
                     snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-                    // Sort descending by date
                     list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                     setLogs(list);
                     setLoading(false);
@@ -260,7 +430,6 @@
             const handleExportCSV = () => {
                 if (logs.length === 0) return alert("No logs to export.");
                 
-                // Detailed CSV including individual student records
                 let csvContent = "Date,Time,Class,Teacher,Student Name,Status\n";
 
                 logs.forEach(log => {
@@ -298,54 +467,53 @@
             };
 
             return (
-                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                <div className="max-w-5xl mx-auto px-4 space-y-6 animate-fade-in z-10 relative">
+                    <div className="glass-panel rounded-3xl p-6 md:p-10 shadow-2xl border-t border-white/60">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
                             <div>
-                                <h2 className="text-2xl font-display font-black text-scis-navy uppercase tracking-tight">Attendance Ledger</h2>
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Review past records</p>
+                                <h2 className="text-3xl font-display font-black text-scis-navy uppercase tracking-tight drop-shadow-sm">Attendance Ledger</h2>
+                                <p className="text-slate-600 font-bold uppercase tracking-widest text-xs mt-1">Review past records & exports</p>
                             </div>
                             <button 
                                 onClick={handleExportCSV}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-black text-sm shadow-xl transition-all btn-press flex items-center justify-center gap-2 border border-green-400"
                             >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                Export Data to Excel
+                                <span>📥</span> Download Excel CSV
                             </button>
                         </div>
 
                         {loading ? (
-                            <div className="p-10 text-center text-slate-500">Loading records...</div>
+                            <div className="p-10 text-center text-scis-navy font-black text-xl animate-pulse">Loading records...</div>
                         ) : logs.length === 0 ? (
-                            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                                <p className="text-slate-400 font-medium">No attendance logs found in the database.</p>
+                            <div className="text-center py-16 bg-white/50 rounded-3xl border-2 border-dashed border-white/50">
+                                <p className="text-slate-500 font-black text-xl">No attendance logs found in the database.</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
-                                <table className="w-full text-left border-collapse min-w-[600px]">
+                            <div className="overflow-x-auto bg-white/60 rounded-2xl shadow-inner border border-white/50">
+                                <table className="w-full text-left border-collapse min-w-[700px]">
                                     <thead>
-                                        <tr className="bg-slate-50 border-b border-slate-200">
-                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Date / Time</th>
-                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Class</th>
-                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Teacher</th>
-                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Present</th>
-                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Absent</th>
+                                        <tr className="bg-white/80 border-b-2 border-white">
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest">Date / Time</th>
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest">Class</th>
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest">Teacher</th>
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Present</th>
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Absent</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
                                         {logs.map(log => (
-                                            <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
-                                                <td className="p-4 whitespace-nowrap text-slate-500 font-medium text-xs">{formatDate(log.timestamp)}</td>
-                                                <td className="p-4 font-black text-scis-navy">{log.class}</td>
-                                                <td className="p-4 font-bold text-slate-700">{(log.teacherEmail || 'Unknown').split('@')[0]}</td>
-                                                <td className="p-4">
-                                                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-black text-xs">{log.presentCount || 0}</span>
+                                            <tr key={log.id} className="border-b border-white/50 hover:bg-white/90 transition-colors">
+                                                <td className="p-5 whitespace-nowrap text-slate-600 font-bold text-xs">{formatDate(log.timestamp)}</td>
+                                                <td className="p-5 font-black text-xl text-scis-navy">{log.class}</td>
+                                                <td className="p-5 font-bold text-slate-700">{(log.teacherEmail || 'Unknown').split('@')[0]}</td>
+                                                <td className="p-5 text-center">
+                                                    <span className="bg-green-100 border border-green-200 text-green-700 px-4 py-1.5 rounded-xl font-black text-sm shadow-sm">{log.presentCount || 0}</span>
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="p-5 text-center">
                                                     {log.absentCount > 0 ? (
-                                                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-lg font-black text-xs">{log.absentCount}</span>
+                                                        <span className="bg-red-100 border border-red-200 text-red-700 px-4 py-1.5 rounded-xl font-black text-sm shadow-sm">{log.absentCount}</span>
                                                     ) : (
-                                                        <span className="text-slate-300 font-bold px-3 py-1">-</span>
+                                                        <span className="text-slate-400 font-black px-3 py-1 opacity-50">-</span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -359,8 +527,9 @@
             );
         }
 
+        // --- MAIN APP ---
         function App() {
-            if (!window.FirebaseDB) return <div className="flex h-screen items-center justify-center font-display font-black text-xl">Loading...</div>;
+            if (!window.FirebaseDB) return <div className="flex h-screen items-center justify-center font-display font-black text-xl bg-scis-navy text-white">Initializing System...</div>;
 
             const [user, setUser] = useState(null);
             const [currentTab, setCurrentTab] = useState('take'); // 'take' | 'history'
@@ -389,14 +558,12 @@
                     setAuthLoaded(true);
                 });
 
-                // Fetch students globally
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
                 const unsubscribeStudents = onSnapshot(q, (snapshot) => {
                     const list = [];
                     snapshot.forEach(doc => {
                         let docData = doc.data();
                         let formattedGrade = docData.grade || '';
-                        // Normalize classes just like in AR portal
                         formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
                         list.push({ id: doc.id, ...docData, grade: formattedGrade, displayName: (docData.name || '').toUpperCase() });
                     });
@@ -426,18 +593,19 @@
                 await signOut(auth);
             };
 
-            if (!authLoaded) return <div className="flex h-screen items-center justify-center font-display font-black text-xl animate-pulse">Connecting...</div>;
+            if (!authLoaded) return <div className="flex h-screen items-center justify-center font-display font-black text-xl animate-pulse bg-scis-navy text-white">Connecting Database...</div>;
 
             if (!user || (!user.email && !user.isAnonymous)) {
                 return (
-                    <div className="flex h-screen flex-col items-center justify-center bg-[#0C1D40] p-6 text-center">
-                        <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
-                            <div className="bg-scis-gold text-scis-navy w-16 h-16 mx-auto flex items-center justify-center rounded-2xl shadow-inner font-display font-black text-4xl mb-6">📝</div>
-                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Attendance</h2>
-                            <p className="text-slate-500 text-sm font-medium mb-8">Sign in with your school email to access your class roster.</p>
-                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                    <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-6 text-center relative overflow-hidden">
+                        <ThreeBackground />
+                        <div className="glass-panel p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full animate-slide-up z-10">
+                            <div className="bg-scis-gold text-scis-navy w-20 h-20 mx-auto flex items-center justify-center rounded-[1.5rem] shadow-inner font-display font-black text-5xl mb-6">📝</div>
+                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Kiosk</h2>
+                            <p className="text-slate-600 text-sm font-bold mb-10">Touch-screen Attendance Portal</p>
+                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-white/50 text-scis-navy font-black py-4 px-4 rounded-2xl hover:bg-slate-50 transition-all shadow-xl btn-press">
                                 <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#7fba00" d="M11 0h10v10H11z"/><path fill="#00a4ef" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
-                                Sign In with Microsoft
+                                Sign In to Activate Kiosk
                             </button>
                         </div>
                     </div>
@@ -445,31 +613,32 @@
             }
 
             return (
-                <div className="min-h-screen">
-                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 py-3 sticky top-0 z-40 shadow-md">
-                        <div className="max-w-6xl mx-auto flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-scis-gold text-scis-navy w-8 h-8 flex items-center justify-center rounded-lg shadow-inner font-display font-black text-lg">📝</div>
+                <div className="min-h-screen relative">
+                    <ThreeBackground />
+                    
+                    <nav className="glass-panel border-b border-white/20 px-4 md:px-8 py-4 sticky top-0 z-40 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-scis-navy text-scis-gold w-10 h-10 flex items-center justify-center rounded-xl shadow-inner font-display font-black text-xl border border-white/20">📝</div>
                                 <div>
-                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block">SCIS Attendance</h1>
-                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden">Roster</h1>
-                                    {userEmail && <div className="text-[10px] text-scis-gold font-medium">{userEmail}</div>}
+                                    <h1 className="text-xl font-display font-black text-scis-navy tracking-tight uppercase leading-none hidden sm:block drop-shadow-sm">Attendance Kiosk</h1>
+                                    <h1 className="text-xl font-display font-black text-scis-navy tracking-tight uppercase leading-none sm:hidden">Kiosk</h1>
                                 </div>
                             </div>
                             
-                            <div className="flex items-center gap-2">
-                                <div className="flex bg-white/10 p-1 rounded-xl mr-2">
-                                    <button onClick={() => setCurrentTab('take')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'take' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Take</button>
-                                    <button onClick={() => setCurrentTab('history')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentTab === 'history' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>History</button>
+                            <div className="flex items-center gap-3">
+                                <div className="flex bg-white/50 p-1.5 rounded-2xl shadow-inner border border-white/50">
+                                    <button onClick={() => setCurrentTab('take')} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${currentTab === 'take' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-slate-600 hover:bg-white/40'}`}>Take</button>
+                                    <button onClick={() => setCurrentTab('history')} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${currentTab === 'history' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-slate-600 hover:bg-white/40'}`}>Log</button>
                                 </div>
-                                <button onClick={handleLogout} className="text-white hover:text-red-400 p-2 transition-colors" title="Sign Out">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                <button onClick={handleLogout} className="bg-white/50 text-red-500 hover:text-red-700 hover:bg-white/80 p-3 rounded-2xl transition-all shadow-inner border border-white/50 btn-press" title="Sign Out">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 </button>
                             </div>
                         </div>
                     </nav>
 
-                    <main className="pt-6 pb-24">
+                    <main className="pt-6 sm:pt-8 pb-32 relative z-10">
                         {currentTab === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <AttendanceHistory userEmail={userEmail} />}
                     </main>
                 </div>
