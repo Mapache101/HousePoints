@@ -212,18 +212,32 @@
 
         // --- RADIAL MOOD PICKER COMPONENT ---
         function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
-            const radius = 65; // Distance of emojis from center
+            const radius = 80; // Distance of emojis from center (Increased for easier touch)
 
             return (
-                <div className="relative flex justify-center items-center h-12 w-12 z-20" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
-                    <div className={`text-4xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`}>
-                        {currentMood || '👤'}
+                <div className="relative flex justify-center items-center h-16 w-16 z-20">
+                    <div 
+                        className={`text-5xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`}
+                        onClick={(e) => { 
+                            e.preventDefault();
+                            e.stopPropagation(); 
+                            onToggle(); 
+                        }}
+                    >
+                        {currentMood || '😐'}
                     </div>
                     
                     {isOpen && (
                         <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
                             {/* Invisible background to capture clicks outside and close the menu */}
-                            <div className="fixed inset-0 w-screen h-screen cursor-default" style={{ left: '-50vw', top: '-50vh' }} onClick={(e) => { e.stopPropagation(); onToggle(); }}></div>
+                            <div 
+                                className="fixed inset-0 z-40 cursor-default" 
+                                onClick={(e) => { 
+                                    e.preventDefault();
+                                    e.stopPropagation(); 
+                                    onToggle(); 
+                                }}
+                            ></div>
                             
                             {MOOD_OPTIONS.map((emoji, i) => {
                                 // Calculate position in a circle (-90 to start from top)
@@ -234,8 +248,12 @@
                                 return (
                                     <div 
                                         key={emoji}
-                                        onClick={(e) => { e.stopPropagation(); onSelect(emoji); }}
-                                        className="absolute flex items-center justify-center w-12 h-12 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-2xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200"
+                                        onClick={(e) => { 
+                                            e.preventDefault();
+                                            e.stopPropagation(); 
+                                            onSelect(emoji); 
+                                        }}
+                                        className="absolute flex items-center justify-center w-14 h-14 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-3xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200 z-50"
                                         style={{ 
                                             transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                                             animationDelay: `${i * 0.03}s` 
@@ -258,7 +276,7 @@
             const [moods, setMoods] = useState({}); // { studentId: emoji }
             const [openMoodMenuId, setOpenMoodMenuId] = useState(null); // Tracks which student has the radial menu open
             const [animatingId, setAnimatingId] = useState(null);
-            const [isSubmitting, setIsSubmitting] = useState(false); // FIXED: Added back isSubmitting state
+            const [isSubmitting, setIsSubmitting] = useState(false); 
             
             const GRADES = useMemo(() => {
                 const grades = new Set(students.map(s => s.grade).filter(Boolean));
