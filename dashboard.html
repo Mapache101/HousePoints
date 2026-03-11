@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCIS AR/DR Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        scis: {
+                            navy: '#0C1D40',
+                            gold: '#FFF86B',
+                            grey: '#A8A6A5'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
+        
+        .bar-grow { animation: growRight 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; transform-origin: left; }
+        .bar-grow-up { animation: growUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; transform-origin: bottom; }
+        
+        @keyframes growRight { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        @keyframes growUp { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+            authDomain: "scis-house-points.firebaseapp.com",
+            projectId: "scis-house-points",
+            storageBucket: "scis-house-points.firebasestorage.app",
+            messagingSenderId: "929403398815",
+            appId: "1:929403398815:web:c6634925bfac5b665650aa"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
+
+            window.FirebaseDB = { auth, db, collection, query, onSnapshot, doc, onAuthStateChanged, signInAnonymously, signInWithCustomToken, appId };
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+        }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const HOUSES = {
+            'centaurs': { name: 'Centaurs', color: '#3b82f6', icon: '🏹' },
+            'pegasus': { name: 'Pegasus', color: '#22c55e', icon: '🪽' },
+            'titans': { name: 'Titans', color: '#eab308', icon: '⚡' },
+            'unicorns': { name: 'Unicorns', color: '#ef4444', icon: '🦄' }
+        };
+
+        // --- Custom Chart Components ---
+
+        function HorizontalBarChart({ data, title, color = "bg-scis-navy" }) {
+            const maxVal = Math.max(...data.map(d => d.value), 1);
+            return (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-full">
+                    <h3 className="font-display font-black text-lg text-scis-navy mb-6">{title}</h3>
+                    <div className="space-y-4">
+                        {data.map((item, idx) => {
+                            const pct = Math.max((item.value / maxVal) * 100, 2);
+                            return (
+                                <div key={idx} className="flex items-center gap-3">
+                                    <div className="w-1/3 truncate text-xs font-bold text-slate-600 text-right" title={item.label}>{item.label}</div>
+                                    <div className="flex-1 h-6 bg-slate-100 rounded-full relative overflow-hidden flex items-center">
+                                        <div className={`absolute top-0 left-0 h-full ${color} bar-grow rounded-full`} style={{ width: `${pct}%` }}></div>
+                                    </div>
+                                    <div className="w-8 text-xs font-black text-scis-navy">{item.value}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        function VerticalBarChart({ data, title, color = "bg-blue-500" }) {
+            const maxVal = Math.max(...data.map(d => d.value), 1);
+            return (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-full flex flex-col">
+                    <h3 className="font-display font-black text-lg text-scis-navy mb-6">{title}</h3>
+                    <div className="flex-1 flex items-end justify-between gap-2 mt-4 pt-10 border-b-2 border-slate-100 pb-2 relative">
+                        {/* Grid lines */}
+                        <div className="absolute w-full border-b border-dashed border-slate-200 bottom-1/4"></div>
+                        <div className="absolute w-full border-b border-dashed border-slate-200 bottom-2/4"></div>
+                        <div className="absolute w-full border-b border-dashed border-slate-200 bottom-3/4"></div>
+                        
+                        {data.map((item, idx) => {
+                            const pct = Math.max((item.value / maxVal) * 100, 5);
+                            return (
+                                <div key={idx} className="flex flex-col items-center flex-1 group z-10">
+                                    <div className="w-full flex justify-center relative h-48 items-end">
+                                        <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity font-black text-xs text-scis-navy">{item.value}</div>
+                                        <div className={`w-full max-w-[40px] rounded-t-xl ${color} bar-grow-up opacity-90 group-hover:opacity-100 transition-all`} style={{ height: `${pct}%` }}></div>
+                                    </div>
+                                    <div className="mt-3 text-[10px] sm:text-xs font-bold text-slate-500 truncate w-full text-center tracking-tighter" title={item.label}>{item.label}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        function HouseDonut({ data }) {
+            return (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-full">
+                    <h3 className="font-display font-black text-lg text-scis-navy mb-6">Incidents by House</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        {data.map(h => (
+                            <div key={h.id} className="bg-slate-50 rounded-2xl p-4 flex flex-col items-center text-center border-b-4" style={{borderColor: h.color}}>
+                                <span className="text-4xl mb-2 drop-shadow-sm">{h.icon}</span>
+                                <span className="text-3xl font-display font-black" style={{color: h.color}}>{h.value}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{h.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [ars, setArs] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const init = async () => {
+                    if (!window.FirebaseDB) return;
+                    const { auth, db, collection, query, onSnapshot, signInAnonymously, signInWithCustomToken, appId } = window.FirebaseDB;
+                    
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch(e) {}
+
+                    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections'));
+                    onSnapshot(q, (snapshot) => {
+                        const list = [];
+                        snapshot.forEach(doc => {
+                            let data = doc.data();
+                            // Normalize grades
+                            let formattedGrade = data.grade || '';
+                            formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB').toUpperCase();
+                            list.push({ ...data, grade: formattedGrade, id: doc.id });
+                        });
+                        setArs(list);
+                        setLoading(false);
+                    });
+                };
+                setTimeout(init, 500);
+            }, []);
+
+            const analytics = useMemo(() => {
+                if (!ars.length) return null;
+
+                const counts = {
+                    total: ars.length,
+                    ars: ars.filter(a => a.type !== 'DR').length,
+                    drs: ars.filter(a => a.type === 'DR').length,
+                    subjects: {},
+                    grades: {},
+                    houses: { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 },
+                    reasons: {},
+                    times: { 'Morning (Before 10AM)': 0, 'Mid-Day (10AM - 1PM)': 0, 'Afternoon (After 1PM)': 0, 'Unknown Time': 0 }
+                };
+
+                ars.forEach(ar => {
+                    // Subjects
+                    const subj = ar.subject || 'Unknown';
+                    counts.subjects[subj] = (counts.subjects[subj] || 0) + 1;
+
+                    // Grades
+                    const grd = ar.grade || 'Unknown';
+                    counts.grades[grd] = (counts.grades[grd] || 0) + 1;
+
+                    // Houses
+                    if (ar.house && counts.houses[ar.house] !== undefined) {
+                        counts.houses[ar.house]++;
+                    }
+
+                    // Reasons
+                    let reason = ar.reason || 'Unknown';
+                    if (reason === 'Other - Otro') reason = 'Other';
+                    else reason = reason.split(' - ')[0]; // Take English part only
+                    counts.reasons[reason] = (counts.reasons[reason] || 0) + 1;
+
+                    // Time of Day
+                    if (ar.timestamp) {
+                        const d = new Date(ar.timestamp.seconds * 1000);
+                        const hour = d.getHours();
+                        if (hour < 10) counts.times['Morning (Before 10AM)']++;
+                        else if (hour >= 10 && hour < 13) counts.times['Mid-Day (10AM - 1PM)']++;
+                        else counts.times['Afternoon (After 1PM)']++;
+                    } else {
+                        counts.times['Unknown Time']++;
+                    }
+                });
+
+                // Format for charts (Sort descending and take top N where appropriate)
+                const formatTop = (obj, limit = 10) => Object.entries(obj)
+                    .map(([label, value]) => ({ label, value }))
+                    .sort((a, b) => b.value - a.value)
+                    .slice(0, limit);
+
+                const formatTime = (obj) => Object.entries(obj)
+                    .map(([label, value]) => ({ label, value }))
+                    .filter(a => a.label !== 'Unknown Time' && a.value > 0);
+
+                const formatHouses = () => Object.entries(counts.houses)
+                    .map(([id, value]) => ({ id, name: HOUSES[id].name, color: HOUSES[id].color, icon: HOUSES[id].icon, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                return {
+                    summary: { total: counts.total, ars: counts.ars, drs: counts.drs },
+                    subjects: formatTop(counts.subjects, 8),
+                    grades: formatTop(counts.grades, 15).sort((a,b) => a.label.localeCompare(b.label)), // Sort grades alphabetically
+                    reasons: formatTop(counts.reasons, 6),
+                    times: formatTime(counts.times),
+                    houses: formatHouses()
+                };
+
+            }, [ars]);
+
+            if (loading) {
+                return <div className="flex h-screen items-center justify-center font-display font-black text-2xl text-scis-navy animate-pulse uppercase tracking-widest">Compiling Analytics...</div>;
+            }
+
+            if (!analytics || analytics.summary.total === 0) {
+                return <div className="flex h-screen items-center justify-center font-display font-bold text-xl text-slate-400">No incident data available yet.</div>;
+            }
+
+            // Top Highlights
+            const topSubject = analytics.subjects[0]?.label || 'N/A';
+            const topGrade = [...analytics.grades].sort((a,b) => b.value - a.value)[0]?.label || 'N/A';
+            const topHouse = analytics.houses[0]?.name || 'N/A';
+
+            return (
+                <div className="min-h-screen bg-slate-50 pb-20">
+                    {/* Header */}
+                    <div className="bg-scis-navy pt-8 pb-20 px-4 md:px-8 border-b-8 border-scis-gold">
+                        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4 text-white">
+                                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-white/20">📈</div>
+                                <div>
+                                    <h1 className="text-3xl md:text-4xl font-display font-black tracking-tight uppercase">Analytics & Trends</h1>
+                                    <p className="text-scis-gold font-bold uppercase tracking-widest text-xs mt-1">Data Insights Dashboard</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-3xl p-5 shadow-lg border border-slate-100 flex flex-col justify-center animate-slide-up" style={{animationDelay: '0.1s'}}>
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Incidents</span>
+                                <span className="text-4xl font-display font-black text-scis-navy">{analytics.summary.total}</span>
+                                <div className="flex gap-2 mt-2">
+                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{analytics.summary.ars} ARs</span>
+                                    <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">{analytics.summary.drs} DRs</span>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-3xl p-5 shadow-lg border border-slate-100 flex flex-col justify-center animate-slide-up" style={{animationDelay: '0.2s'}}>
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Most Frequent Subject</span>
+                                <span className="text-xl font-black text-slate-800 uppercase truncate" title={topSubject}>{topSubject}</span>
+                            </div>
+                            <div className="bg-white rounded-3xl p-5 shadow-lg border border-slate-100 flex flex-col justify-center animate-slide-up" style={{animationDelay: '0.3s'}}>
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Class w/ Most Incidents</span>
+                                <span className="text-3xl font-display font-black text-amber-600">{topGrade}</span>
+                            </div>
+                            <div className="bg-white rounded-3xl p-5 shadow-lg border border-slate-100 flex flex-col justify-center animate-slide-up" style={{animationDelay: '0.4s'}}>
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">House w/ Most Incidents</span>
+                                <span className="text-2xl font-black text-slate-800 uppercase flex items-center gap-2">
+                                    {analytics.houses[0]?.icon} {topHouse}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Row 1: Subjects & Houses */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-up" style={{animationDelay: '0.5s'}}>
+                            <HorizontalBarChart data={analytics.subjects} title="Incidents by Subject (Top 8)" color="bg-blue-500" />
+                            <HouseDonut data={analytics.houses} />
+                        </div>
+
+                        {/* Row 2: Grades & Time of Day */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-up" style={{animationDelay: '0.6s'}}>
+                            <VerticalBarChart data={analytics.grades} title="Incidents Spread by Class" color="bg-amber-500" />
+                            <VerticalBarChart data={analytics.times} title="Time of Day Occurrences" color="bg-purple-500" />
+                        </div>
+
+                        {/* Row 3: Reasons */}
+                        <div className="animate-slide-up" style={{animationDelay: '0.7s'}}>
+                            <HorizontalBarChart data={analytics.reasons} title="Most Frequent Reasons" color="bg-red-500" />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
