@@ -258,6 +258,7 @@
             const [moods, setMoods] = useState({}); // { studentId: emoji }
             const [openMoodMenuId, setOpenMoodMenuId] = useState(null); // Tracks which student has the radial menu open
             const [animatingId, setAnimatingId] = useState(null);
+            const [isSubmitting, setIsSubmitting] = useState(false); // FIXED: Added back isSubmitting state
             
             const GRADES = useMemo(() => {
                 const grades = new Set(students.map(s => s.grade).filter(Boolean));
