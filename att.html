@@ -224,7 +224,7 @@
         // --- ATTENDANCE KIOSK ---
         function AttendanceTaker({ userEmail, students }) {
             const [selectedClass, setSelectedClass] = useState('');
-            const [attendance, setAttendance] = useState({}); // { studentId: 'P' | 'A' }
+            const [attendance, setAttendance] = useState({}); // { studentId: 'P' | 'L' | 'A' }
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [animatingId, setAnimatingId] = useState(null);
             
@@ -258,14 +258,15 @@
                 setAttendance(newAtt);
             };
 
-            // Gamified Cycle: Null -> Present -> Absent -> Null
+            // Gamified Cycle: Null -> Present -> Late -> Absent -> Null
             const cycleStudent = (id) => {
                 setAnimatingId(id);
                 setTimeout(() => setAnimatingId(null), 400); // clear animation class after flash/press finishes
 
                 setAttendance(prev => {
                     const current = prev[id];
-                    if (current === 'P') return { ...prev, [id]: 'A' };
+                    if (current === 'P') return { ...prev, [id]: 'L' };
+                    if (current === 'L') return { ...prev, [id]: 'A' };
                     if (current === 'A') {
                         const next = {...prev};
                         delete next[id];
@@ -277,7 +278,7 @@
 
             const handleSubmit = async () => {
                 if (Object.keys(attendance).length !== currentStudents.length) {
-                    return alert("Please ensure every student is marked (Present or Absent) before submitting.");
+                    return alert("Please ensure every student is marked (Present, Late, or Absent) before submitting.");
                 }
 
                 setIsSubmitting(true);
@@ -296,6 +297,7 @@
                         timestamp: Timestamp.now(),
                         records: recordsToSave,
                         presentCount: Object.values(attendance).filter(v => v === 'P').length,
+                        lateCount: Object.values(attendance).filter(v => v === 'L').length,
                         absentCount: Object.values(attendance).filter(v => v === 'A').length
                     });
                     
@@ -356,6 +358,10 @@
                                         cardStyle = "bg-gradient-to-b from-green-400 to-green-500 border-green-300 border-b-green-700 text-white shadow-green-500/50";
                                         statusLabel = "PRESENT";
                                         statusIcon = "✅";
+                                    } else if (status === 'L') {
+                                        cardStyle = "bg-gradient-to-b from-amber-400 to-amber-500 border-amber-300 border-b-amber-700 text-white shadow-amber-500/50";
+                                        statusLabel = "LATE";
+                                        statusIcon = "⏱️";
                                     } else if (status === 'A') {
                                         cardStyle = "bg-gradient-to-b from-red-400 to-red-500 border-red-300 border-b-red-700 text-white shadow-red-500/50";
                                         statusLabel = "ABSENT";
@@ -436,6 +442,7 @@
                 const unsubscribe = onSnapshot(q, (snapshot) => {
                     const list = [];
                     snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    // Sort descending for the UI table
                     list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                     setLogs(list);
                     setLoading(false);
@@ -447,30 +454,64 @@
             const handleExportCSV = () => {
                 if (logs.length === 0) return alert("No logs to export.");
                 
-                let csvContent = "Date,Time,Class,Teacher,Student Name,Status\n";
-
-                logs.forEach(log => {
+                // 1. Sort logs chronologically (oldest first for left-to-right columns)
+                const sortedLogs = [...logs].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+                
+                // 2. Generate Column Headers
+                const headers = ["Student Name", "Class"];
+                sortedLogs.forEach(log => {
                     const dateObj = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
-                    const dateStr = dateObj ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` : '';
+                    const dateStr = dateObj ? `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}` : '';
                     const timeStr = dateObj ? `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}` : '';
                     
-                    const tClass = `"${log.class || ''}"`;
-                    const tTeacher = `"${(log.teacherEmail || 'Unknown').split('@')[0]}"`;
+                    headers.push(`"${dateStr} ${timeStr}"`); // Use Date + Time as column header
+                });
 
+                // 3. Aggregate Students and match their P/A/L status per log column
+                const studentMap = {}; // Group by student name and class
+                
+                sortedLogs.forEach((log, logIndex) => {
                     if (log.records && Array.isArray(log.records)) {
                         log.records.forEach(rec => {
-                            const sName = `"${(rec.studentName || 'Unknown').replace(/"/g, '""')}"`;
-                            const sStatus = rec.status === 'P' ? 'Present' : 'Absent';
-                            csvContent += `${dateStr},${timeStr},${tClass},${tTeacher},${sName},${sStatus}\n`;
+                            const studentName = rec.studentName || 'Unknown';
+                            const className = log.class || 'Unknown';
+                            const key = `${studentName}_${className}`;
+                            
+                            // Initialize student row if they don't exist yet
+                            if (!studentMap[key]) {
+                                studentMap[key] = {
+                                    name: studentName,
+                                    className: className,
+                                    // Fill their row with '-' by default
+                                    statuses: new Array(sortedLogs.length).fill('-') 
+                                };
+                            }
+                            
+                            // Insert 'P', 'A', or 'L' at the exact column index for this specific roll-call
+                            studentMap[key].statuses[logIndex] = rec.status;
                         });
                     }
                 });
+
+                // 4. Build CSV Rows
+                // Sort students alphabetically
+                const sortedStudentKeys = Object.keys(studentMap).sort((a, b) => a.localeCompare(b));
+                
+                const rows = sortedStudentKeys.map(key => {
+                    const student = studentMap[key];
+                    const escapedName = `"${student.name.replace(/"/g, '""')}"`;
+                    const escapedClass = `"${student.className.replace(/"/g, '""')}"`;
+                    return [escapedName, escapedClass, ...student.statuses].join(',');
+                });
+
+                // Combine Headers and Rows
+                const csvContent = [headers.join(','), ...rows].join('\n');
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
-                link.setAttribute("download", `SCIS_Attendance_Log_${new Date().toISOString().split('T')[0]}.csv`);
+                link.setAttribute("download", `SCIS_Attendance_Matrix_${new Date().toISOString().split('T')[0]}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
@@ -495,7 +536,7 @@
                                 onClick={handleExportCSV}
                                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-black text-sm shadow-xl transition-all btn-press flex items-center justify-center gap-2 border border-green-400"
                             >
-                                <span>📥</span> Download Excel CSV
+                                <span>📥</span> Download Excel Matrix
                             </button>
                         </div>
 
@@ -514,6 +555,7 @@
                                             <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest">Class</th>
                                             <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest">Teacher</th>
                                             <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Present</th>
+                                            <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Late</th>
                                             <th className="p-5 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Absent</th>
                                         </tr>
                                     </thead>
@@ -525,6 +567,13 @@
                                                 <td className="p-5 font-bold text-slate-700">{(log.teacherEmail || 'Unknown').split('@')[0]}</td>
                                                 <td className="p-5 text-center">
                                                     <span className="bg-green-100 border border-green-200 text-green-700 px-4 py-1.5 rounded-xl font-black text-sm shadow-sm">{log.presentCount || 0}</span>
+                                                </td>
+                                                <td className="p-5 text-center">
+                                                    {log.lateCount > 0 ? (
+                                                        <span className="bg-amber-100 border border-amber-200 text-amber-700 px-4 py-1.5 rounded-xl font-black text-sm shadow-sm">{log.lateCount}</span>
+                                                    ) : (
+                                                        <span className="text-slate-400 font-black px-3 py-1 opacity-50">-</span>
+                                                    )}
                                                 </td>
                                                 <td className="p-5 text-center">
                                                     {log.absentCount > 0 ? (
