@@ -54,7 +54,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0C1D40; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
@@ -75,6 +74,19 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* Cool smooth color degrade background */
+        .bg-gradient-animate {
+            background: linear-gradient(-45deg, #0C1D40, #132a54, #081226, #1b3a6e);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
     </style>
 </head>
@@ -118,95 +130,6 @@
         ];
 
         const MOOD_OPTIONS = ['😐', '🤔', '🥰', '😄', '🙄', '🕵️', '🤯'];
-
-        // --- 3D BACKGROUND COMPONENT ---
-        function ThreeBackground() {
-            const mountRef = useRef(null);
-
-            useEffect(() => {
-                const currentMount = mountRef.current;
-                if (!currentMount || !window.THREE) return;
-
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
-                currentMount.appendChild(renderer.domElement);
-
-                const particlesGeometry = new THREE.BufferGeometry();
-                const particlesCount = 1500;
-                const posArray = new Float32Array(particlesCount * 3);
-                
-                for(let i = 0; i < particlesCount * 3; i++) {
-                    posArray[i] = (Math.random() - 0.5) * 15;
-                }
-                
-                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-                
-                const material = new THREE.PointsMaterial({
-                    size: 0.03,
-                    color: '#FFF86B', // SCIS Gold
-                    transparent: true,
-                    opacity: 0.8,
-                    blending: THREE.AdditiveBlending
-                });
-                
-                const particlesMesh = new THREE.Points(particlesGeometry, material);
-                scene.add(particlesMesh);
-
-                camera.position.z = 3;
-
-                let mouseX = 0;
-                let mouseY = 0;
-                let targetX = 0;
-                let targetY = 0;
-
-                const windowHalfX = window.innerWidth / 2;
-                const windowHalfY = window.innerHeight / 2;
-
-                const handleMove = (event) => {
-                    const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-                    const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-                    mouseX = (clientX - windowHalfX);
-                    mouseY = (clientY - windowHalfY);
-                };
-
-                window.addEventListener('mousemove', handleMove);
-                window.addEventListener('touchmove', handleMove);
-
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    targetX = mouseX * 0.001;
-                    targetY = mouseY * 0.001;
-                    particlesMesh.rotation.y += 0.001 + (targetX - particlesMesh.rotation.y) * 0.05;
-                    particlesMesh.rotation.x += 0.0005 + (targetY - particlesMesh.rotation.x) * 0.05;
-                    renderer.render(scene, camera);
-                };
-                
-                animate();
-
-                const handleResize = () => {
-                    camera.aspect = window.innerWidth / window.innerHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(window.innerWidth, window.innerHeight);
-                };
-                window.addEventListener('resize', handleResize);
-
-                return () => {
-                    window.removeEventListener('resize', handleResize);
-                    window.removeEventListener('mousemove', handleMove);
-                    window.removeEventListener('touchmove', handleMove);
-                    if (currentMount) currentMount.removeChild(renderer.domElement);
-                    particlesGeometry.dispose();
-                    material.dispose();
-                    renderer.dispose();
-                };
-            }, []);
-
-            return <div ref={mountRef} className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none bg-scis-navy"></div>;
-        }
 
         // --- RADIAL MOOD PICKER COMPONENT ---
         function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
@@ -832,7 +755,7 @@
             if (!user || (!user.email && !user.isAnonymous)) {
                 return (
                     <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-6 text-center relative overflow-hidden">
-                        <ThreeBackground />
+                        <div className="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-animate pointer-events-none"></div>
                         <div className="glass-panel p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full animate-slide-up z-10">
                             <div className="bg-scis-gold text-scis-navy w-20 h-20 mx-auto flex items-center justify-center rounded-[1.5rem] shadow-inner font-display font-black text-5xl mb-6">📝</div>
                             <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Kiosk</h2>
@@ -848,7 +771,7 @@
 
             return (
                 <div className="min-h-screen relative">
-                    <ThreeBackground />
+                    <div className="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-animate pointer-events-none"></div>
                     
                     <nav className="glass-panel border-b border-white/20 px-4 md:px-8 py-4 sticky top-0 z-40 shadow-lg">
                         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -866,21 +789,4 @@
                                     <button onClick={() => setCurrentTab('history')} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${currentTab === 'history' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-slate-600 hover:bg-white/40'}`}>Log</button>
                                 </div>
                                 <button onClick={handleLogout} className="bg-white/50 text-red-500 hover:text-red-700 hover:bg-white/80 p-3 rounded-2xl transition-all shadow-inner border border-white/50 btn-press" title="Sign Out">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </nav>
-
-                    <main className="pt-6 sm:pt-8 pb-32 relative z-10">
-                        {currentTab === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <AttendanceHistory userEmail={userEmail} />}
-                    </main>
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013
