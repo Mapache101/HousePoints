@@ -69,6 +69,10 @@
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
         
+        /* Completely hide scrollbar for horizontal timelines */
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
         .glass-panel {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(16px);
@@ -468,6 +472,35 @@
                 return counts;
             }, [filteredLogs]);
 
+            // Calculate dominant mood per session for timeline
+            const moodTimeline = useMemo(() => {
+                const sortedLogs = [...filteredLogs].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+                
+                return sortedLogs.map(log => {
+                    const counts = {};
+                    if (log.records) {
+                        log.records.forEach(rec => {
+                            if (rec.mood) counts[rec.mood] = (counts[rec.mood] || 0) + 1;
+                        });
+                    }
+                    
+                    let dominantMood = '😐';
+                    let maxCount = 0;
+                    for (const [m, c] of Object.entries(counts)) {
+                        if (c > maxCount) { maxCount = c; dominantMood = m; }
+                    }
+                    
+                    const d = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
+                    const dateStr = d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Unknown';
+
+                    return {
+                        id: log.id,
+                        date: dateStr,
+                        mood: maxCount > 0 ? dominantMood : 'N/A'
+                    };
+                }).filter(x => x.mood !== 'N/A');
+            }, [filteredLogs]);
+
             // Matrix generation functions
             const getChronologicalLogs = () => [...filteredLogs].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
             
@@ -578,26 +611,49 @@
                                 
                                 {/* MOOD ANALYTICS */}
                                 {selectedClass && (
-                                    <div className="bg-white/80 rounded-2xl p-6 shadow-inner border border-white">
-                                        <h3 className="font-display font-black text-lg text-scis-navy mb-4 uppercase tracking-wider">Class Mood Trends</h3>
-                                        <div className="flex justify-between items-end gap-2 sm:gap-4 h-32">
-                                            {MOOD_OPTIONS.map(mood => {
-                                                const count = moodStats[mood];
-                                                const pct = Math.max((count / maxMoodCount) * 100, 8); // Minimum 8% height so bar is visible
-                                                return (
-                                                    <div key={mood} className="flex flex-col items-center flex-1 group">
-                                                        <div className="font-bold text-xs text-scis-navy mb-1 opacity-0 group-hover:opacity-100 transition-opacity">{count}</div>
-                                                        <div className="w-full max-w-[40px] bg-slate-200 rounded-t-lg h-full flex items-end relative overflow-hidden">
-                                                            <div 
-                                                                className="w-full bg-gradient-to-t from-scis-navy to-blue-500 rounded-t-lg transition-all duration-1000" 
-                                                                style={{ height: `${pct}%` }}
-                                                            ></div>
+                                    <div className="bg-white/80 rounded-2xl p-6 shadow-inner border border-white space-y-8">
+                                        <div>
+                                            <h3 className="font-display font-black text-lg text-scis-navy mb-4 uppercase tracking-wider">Overall Mood Profile</h3>
+                                            <div className="flex justify-between items-end gap-2 sm:gap-4 h-32">
+                                                {MOOD_OPTIONS.map(mood => {
+                                                    const count = moodStats[mood];
+                                                    const pct = maxMoodCount > 0 ? (count / maxMoodCount) * 100 : 0;
+                                                    const minHeight = Math.max(pct, 8); // Minimum height to be visible
+                                                    const scale = 1 + (pct / 100) * 0.8; // Emoji scales from 1x to 1.8x depending on popularity
+                                                    const opacity = count > 0 ? 1 : 0.4; // Dim emojis with zero count
+                                                    
+                                                    return (
+                                                        <div key={mood} className="flex flex-col items-center flex-1 transition-all duration-300 hover:scale-105" style={{ opacity }}>
+                                                            <div className="font-black text-sm text-scis-navy mb-2">{count}</div>
+                                                            <div className="w-full max-w-[40px] bg-slate-200 rounded-t-xl h-full flex items-end relative overflow-hidden shadow-inner">
+                                                                <div 
+                                                                    className="w-full bg-gradient-to-t from-scis-navy to-blue-400 rounded-t-xl transition-all duration-1000 shadow-lg" 
+                                                                    style={{ height: `${minHeight}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="mt-4 text-2xl drop-shadow-md transition-transform duration-500" style={{ transform: `scale(${scale})` }}>
+                                                                {mood}
+                                                            </div>
                                                         </div>
-                                                        <div className="text-2xl sm:text-3xl mt-2 drop-shadow-sm group-hover:scale-110 transition-transform">{mood}</div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
+
+                                        {/* MOOD OVER TIME TIMELINE */}
+                                        {moodTimeline.length > 0 && (
+                                            <div className="pt-6 border-t border-slate-200">
+                                                <h3 className="font-display font-black text-lg text-scis-navy mb-4 uppercase tracking-wider">Mood Over Time (Dominant)</h3>
+                                                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                                                    {moodTimeline.map((item, idx) => (
+                                                        <div key={item.id} className="flex flex-col items-center min-w-[75px] bg-white rounded-2xl p-3 shadow-sm border border-slate-100 shrink-0">
+                                                            <span className="text-xs font-bold text-slate-400 mb-2">{item.date}</span>
+                                                            <span className="text-3xl drop-shadow-sm">{item.mood}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
