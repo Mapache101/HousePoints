@@ -789,4 +789,21 @@
                                     <button onClick={() => setCurrentTab('history')} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${currentTab === 'history' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-slate-600 hover:bg-white/40'}`}>Log</button>
                                 </div>
                                 <button onClick={handleLogout} className="bg-white/50 text-red-500 hover:text-red-700 hover:bg-white/80 p-3 rounded-2xl transition-all shadow-inner border border-white/50 btn-press" title="Sign Out">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="pt-6 sm:pt-8 pb-32 relative z-10">
+                        {currentTab === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <AttendanceHistory userEmail={userEmail} />}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
