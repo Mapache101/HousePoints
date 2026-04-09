@@ -316,36 +316,6 @@
                 </span>
             );
         }
-        
-        function SimpleWordCloud({ data, title, isAlert = false }) {
-            const entries = Object.entries(data);
-            if(entries.length === 0) return null;
-            
-            const max = Math.max(...entries.map(e => e[1]));
-            const min = Math.min(...entries.map(e => e[1]));
-
-            return (
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col h-full">
-                    <h3 className="font-display font-black text-lg text-scis-navy mb-4">{title}</h3>
-                    <div className="flex flex-wrap gap-4 items-center justify-center py-4 flex-1">
-                        {entries.sort((a,b) => b[1] - a[1]).map(([word, count]) => {
-                            const size = min === max ? 1.5 : 1 + ((count - min) / (max - min)) * 2;
-                            const isHigh = isAlert && count > 3;
-                            return (
-                                <span 
-                                    key={word} 
-                                    className={`font-bold transition-transform hover:scale-110 cursor-pointer ${isHigh ? 'text-red-500 drop-shadow-sm' : 'text-slate-600 hover:text-scis-navy'}`}
-                                    style={{ fontSize: `${size}rem`, lineHeight: '1' }}
-                                    title={`${count} incidents`}
-                                >
-                                    {word}
-                                </span>
-                            )
-                        })}
-                    </div>
-                </div>
-            );
-        }
 
         function ARForm({ userEmail, students, isCoordinator }) {
             const GRADES = useMemo(() => [...new Set(students.map(s => s.grade))].sort(), [students]);
@@ -660,8 +630,166 @@
             );
         }
 
+        function AnalyticsTab({ ars }) {
+            const [filterGrade, setFilterGrade] = useState('');
+            const [filterType, setFilterType] = useState('all'); 
+            const [searchName, setSearchName] = useState('');
+            
+            const analyzedData = useMemo(() => {
+                let filteredArs = ars;
+                
+                // Apply filters
+                if (filterGrade) filteredArs = filteredArs.filter(a => a.grade === filterGrade);
+                if (filterType !== 'all') filteredArs = filteredArs.filter(a => a.type === filterType);
+                if (searchName) filteredArs = filteredArs.filter(a => a.studentName?.toLowerCase().includes(searchName.toLowerCase()));
+                
+                const students = {};
+                const reasons = {};
+                const subjects = {};
+                
+                filteredArs.forEach(ar => {
+                    // Tally by student
+                    if (!students[ar.studentId]) {
+                        students[ar.studentId] = { 
+                            id: ar.studentId, name: ar.studentName, grade: ar.grade, house: ar.house, 
+                            ars: 0, drs: 0, total: 0 
+                        };
+                    }
+                    if (ar.type === 'AR') students[ar.studentId].ars++;
+                    if (ar.type === 'DR') students[ar.studentId].drs++;
+                    students[ar.studentId].total++;
+                    
+                    // Tally by reason (clean up text for display)
+                    const r = ar.reason === 'Other - Otro' ? 'Other' : (ar.reason || '').split(' - ')[0];
+                    reasons[r] = (reasons[r] || 0) + 1;
+                    
+                    // Tally by subject
+                    if (ar.subject) {
+                        subjects[ar.subject] = (subjects[ar.subject] || 0) + 1;
+                    }
+                });
+                
+                // Sort students by highest offenders
+                const sortedStudents = Object.values(students).sort((a,b) => b.total - a.total);
+                // Sort patterns
+                const topReasons = Object.entries(reasons).map(([name, count]) => ({name, count})).sort((a,b) => b.count - a.count).slice(0, 5);
+                const topSubjects = Object.entries(subjects).map(([name, count]) => ({name, count})).sort((a,b) => b.count - a.count).slice(0, 5);
+                
+                return { offenders: sortedStudents, topReasons, topSubjects };
+            }, [ars, filterGrade, filterType, searchName]);
+
+            const grades = [...new Set(ars.map(a => a.grade).filter(Boolean))].sort();
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    {/* Filter Bar */}
+                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <input 
+                                type="text" 
+                                placeholder="Search student by name..." 
+                                value={searchName}
+                                onChange={e => setSearchName(e.target.value)}
+                                className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-scis-navy"
+                            />
+                            <span className="absolute left-3 top-3 text-slate-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </span>
+                        </div>
+                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-scis-navy focus:outline-none focus:border-scis-navy">
+                            <option value="">All Grades</option>
+                            {grades.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-scis-navy focus:outline-none focus:border-scis-navy">
+                            <option value="all">All Incidents</option>
+                            <option value="AR">ARs Only</option>
+                            <option value="DR">DRs Only</option>
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Repeat Offenders Table */}
+                        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-display font-black text-xl text-scis-navy">Repeat Offenders</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Students with > 3 ARs are flagged automatically</p>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="sticky top-0 bg-white shadow-sm z-10">
+                                        <tr>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest">Student</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest text-center">ARs</th>
+                                            <th className="p-4 text-xs font-black text-slate-500 uppercase tracking-widest text-center">DRs</th>
+                                            <th className="p-4 text-xs font-black text-scis-navy uppercase tracking-widest text-center">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {analyzedData.offenders.map(s => {
+                                            const isFlagged = s.ars > 3;
+                                            return (
+                                                <tr key={s.id} className={`border-b border-slate-50 transition-colors ${isFlagged ? 'bg-red-50/60' : 'hover:bg-slate-50'}`}>
+                                                    <td className="p-4">
+                                                        <div className="font-bold text-scis-navy flex items-center gap-2">
+                                                            {s.name}
+                                                            {isFlagged && <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest uppercase shadow-sm border border-red-200" title="Exceeded 3 AR limit">⚠️ Alert</span>}
+                                                        </div>
+                                                        <div className="flex gap-2 mt-1 items-center">
+                                                            <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 rounded border border-slate-200">{s.grade}</span>
+                                                            <HouseBadge houseId={s.house} />
+                                                        </div>
+                                                    </td>
+                                                    <td className={`p-4 text-center font-bold ${s.ars > 0 ? 'text-slate-700' : 'text-slate-300'}`}>{s.ars}</td>
+                                                    <td className={`p-4 text-center font-bold ${s.drs > 0 ? 'text-red-600' : 'text-slate-300'}`}>{s.drs}</td>
+                                                    <td className="p-4 text-center font-black text-scis-navy">{s.total}</td>
+                                                </tr>
+                                            )
+                                        })}
+                                        {analyzedData.offenders.length === 0 && (
+                                            <tr><td colSpan="4" className="text-center p-10 text-slate-400 font-medium">No records match your filters.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Pattern Discovery */}
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+                                <h3 className="font-display font-black text-lg text-scis-navy mb-4">Top Reasons</h3>
+                                <ul className="space-y-3">
+                                    {analyzedData.topReasons.map((r, i) => (
+                                        <li key={i} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <span className="font-medium text-slate-600 truncate mr-2" title={r.name}>{r.name}</span>
+                                            <span className="font-black text-scis-navy bg-white shadow-sm border border-slate-200 px-3 py-1 rounded-lg">{r.count}</span>
+                                        </li>
+                                    ))}
+                                    {analyzedData.topReasons.length === 0 && <li className="text-sm text-slate-400">Not enough data.</li>}
+                                </ul>
+                            </div>
+
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+                                <h3 className="font-display font-black text-lg text-scis-navy mb-4">Problem Subjects</h3>
+                                <ul className="space-y-3">
+                                    {analyzedData.topSubjects.map((s, i) => (
+                                        <li key={i} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <span className="font-medium text-slate-600 truncate mr-2" title={s.name}>{s.name}</span>
+                                            <span className="font-black text-scis-navy bg-white shadow-sm border border-slate-200 px-3 py-1 rounded-lg">{s.count}</span>
+                                        </li>
+                                    ))}
+                                    {analyzedData.topSubjects.length === 0 && <li className="text-sm text-slate-400">Not enough data.</li>}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function CoordinatorDashboard({ students, roles, isAdmin, isCoordinator }) {
-            const [view, setView] = useState('ars'); // 'ars' | 'students' | 'roles'
+            const [view, setView] = useState('ars'); // 'ars' | 'students' | 'roles' | 'analysis'
             const [ars, setArs] = useState([]);
             const [houseTotals, setHouseTotals] = useState({});
             const [loading, setLoading] = useState(true);
@@ -790,32 +918,6 @@
                 return result;
             }, [ars, filter, gradeFilter, sortField, sortDirection, statusFilter]);
 
-            // Analytics & Word Cloud Computation
-            const offenderStats = useMemo(() => {
-                const sCounts = {};
-                const gCounts = {};
-                const studentDetails = {};
-
-                ars.forEach(ar => {
-                    if (ar.studentName) {
-                        sCounts[ar.studentName] = (sCounts[ar.studentName] || 0) + 1;
-                        if (!studentDetails[ar.studentName]) {
-                            studentDetails[ar.studentName] = { name: ar.studentName, grade: ar.grade, house: ar.house };
-                        }
-                    }
-                    if (ar.grade) {
-                        gCounts[ar.grade] = (gCounts[ar.grade] || 0) + 1;
-                    }
-                });
-
-                const repeatOffenders = Object.keys(sCounts)
-                    .filter(name => sCounts[name] > 3)
-                    .map(name => ({ ...studentDetails[name], count: sCounts[name] }))
-                    .sort((a, b) => b.count - a.count);
-
-                return { studentCounts: sCounts, gradeCounts: gCounts, repeatOffenders };
-            }, [ars]);
-
             const formatDate = (ts) => {
                 if (!ts) return '';
                 const d = new Date(ts.seconds * 1000);
@@ -873,17 +975,18 @@
                     <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
                         <div>
                             <h2 className="text-3xl font-display font-black text-scis-navy uppercase tracking-tight flex items-center gap-2">
-                                <span className="text-3xl">📋</span> {view === 'ars' ? 'Dashboard' : view === 'students' ? 'Student Database' : 'Manage Roles'}
+                                <span className="text-3xl">{view === 'analysis' ? '📈' : '📋'}</span> {view === 'ars' ? 'Dashboard' : view === 'students' ? 'Student Database' : view === 'analysis' ? 'Incident Analysis' : 'Manage Roles'}
                             </h2>
                             <p className="text-slate-500 text-sm font-medium mt-1">High School Coordinator Panel</p>
                         </div>
                         
-                        <div className="flex gap-2">
-                            <button onClick={() => setView('ars')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'ars' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Dashboard</button>
+                        <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => setView('ars')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'ars' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Dashboard</button>
+                            <button onClick={() => setView('analysis')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'analysis' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Analysis</button>
                             {isAdmin && (
                                 <>
-                                    <button onClick={() => setView('students')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'students' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Students</button>
-                                    <button onClick={() => setView('roles')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'roles' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>Roles</button>
+                                    <button onClick={() => setView('students')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'students' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Students</button>
+                                    <button onClick={() => setView('roles')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${view === 'roles' ? 'bg-scis-navy text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>Roles</button>
                                 </>
                             )}
                         </div>
@@ -893,6 +996,8 @@
                         <StudentManager students={students} />
                     ) : view === 'roles' && isAdmin ? (
                         <RoleManager roles={roles} />
+                    ) : view === 'analysis' ? (
+                        <AnalyticsTab ars={ars} />
                     ) : (
                         <>
                             {/* LIVE HOUSE POINTS */}
@@ -904,37 +1009,6 @@
                                         <span className="text-3xl font-display font-black" style={{color: house.color}}>{houseTotals[id] || 0}</span>
                                     </div>
                                 ))}
-                            </div>
-
-                            {/* REPEAT OFFENDERS ALERT */}
-                            {offenderStats.repeatOffenders.length > 0 && (
-                                <div className="mb-8 bg-red-50 p-6 rounded-3xl border-2 border-red-200 shadow-sm animate-fade-in">
-                                    <h3 className="font-display font-black text-xl text-red-700 flex items-center gap-2 mb-4">
-                                        <span className="text-2xl animate-pulse">⚠️</span> Attention: Repeat Offenders (>3 Incidents)
-                                    </h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                                        {offenderStats.repeatOffenders.map(student => (
-                                            <div key={student.name} className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex justify-between items-center">
-                                                <div>
-                                                    <div className="font-bold text-scis-navy text-sm">{student.name}</div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 rounded">{student.grade}</span>
-                                                        <HouseBadge houseId={student.house} />
-                                                    </div>
-                                                </div>
-                                                <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 font-black flex items-center justify-center text-lg border border-red-200">
-                                                    {student.count}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* WORD CLOUDS */}
-                            <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <SimpleWordCloud data={offenderStats.studentCounts} title="Student Frequency Cloud" isAlert={true} />
-                                <SimpleWordCloud data={offenderStats.gradeCounts} title="Grade Frequency Cloud" />
                             </div>
 
                             {/* Advanced Filter and Sort Toolbar */}
