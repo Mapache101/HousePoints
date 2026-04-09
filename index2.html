@@ -68,8 +68,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, OAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, OAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
@@ -83,7 +83,7 @@
         try {
             const app = initializeApp(firebaseConfig);
             window.FirebaseDB = { 
-                db: getFirestore(app), auth: getAuth(app), collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, appId: 'scis-house-points' 
+                db: getFirestore(app), auth: getAuth(app), collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
             };
         } catch (error) { console.error("Firebase Init Error:", error); }
     </script>
@@ -112,7 +112,6 @@
             "Physics", "Physical Education", "Maths / Kingsley", "Maths / Silvia", "Maths / Guillermo", "English / Elvia", "English / Sara", 
             "English / Letty", "ICT", "Biology", "Art", "Music", "Global Perspectives / Ms Wei", "Global Perspectives / Ms Bell", "Business Studies", "Homeroom"
         ];
-        const SCHEDULE = [ { day: 1, start: '08:00', end: '09:30', class: '1sA' }, { day: 1, start: '09:45', end: '11:15', class: '2sB' }, { day: 2, start: '08:00', end: '09:30', class: '3sA' } ];
 
         const formatDateTime = (timestamp) => {
             if (!timestamp) return '';
@@ -140,17 +139,22 @@
             useEffect(() => {
                 const checkDb = setInterval(() => { if (window.FirebaseDB) { clearInterval(checkDb); initApp(); } }, 100);
                 function initApp() {
-                    const { auth, db, doc, collection, query, onSnapshot, setDoc, onAuthStateChanged, appId } = window.FirebaseDB;
+                    const { auth, db, doc, collection, query, onSnapshot, setDoc, onAuthStateChanged } = window.FirebaseDB;
                     onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
 
-                    // Fetch Roles
-                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), (docSnap) => {
-                        if (docSnap.exists()) setRoles({ admins: (docSnap.data().admins || []).map(e => e.toLowerCase()), coordinators: (docSnap.data().coordinators || []).map(e => e.toLowerCase()) });
-                        else { const initRoles = { admins: [ADMIN_EMAIL], coordinators: [] }; setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), initRoles); setRoles(initRoles); }
+                    // Fetch Roles DIRECTLY from root
+                    onSnapshot(doc(db, 'settings', 'roles'), (docSnap) => {
+                        if (docSnap.exists()) {
+                            setRoles({ admins: (docSnap.data().admins || []).map(e => e.toLowerCase()), coordinators: (docSnap.data().coordinators || []).map(e => e.toLowerCase()) });
+                        } else { 
+                            const initRoles = { admins: [ADMIN_EMAIL], coordinators: [] }; 
+                            setDoc(doc(db, 'settings', 'roles'), initRoles); 
+                            setRoles(initRoles); 
+                        }
                     });
 
-                    // Fetch Students Globally
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'students')), (snapshot) => {
+                    // Fetch Students DIRECTLY from root globally
+                    onSnapshot(query(collection(db, 'students')), (snapshot) => {
                         const list = []; const gradeSet = new Set();
                         snapshot.forEach(doc => {
                             let data = doc.data();
@@ -166,19 +170,19 @@
 
             if (loading) return <div className="flex h-screen items-center justify-center"><div className="loading-spin h-12 w-12 border-8 border-scis-gold border-t-scis-navy rounded-full"></div></div>;
 
-            const userEmail = user?.email?.toLowerCase();
-            const isAdmin = userEmail && (roles.admins.includes(userEmail) || userEmail === ADMIN_EMAIL);
+            const userEmail = user?.email ? user.email.toLowerCase() : '';
+            const isAdmin = userEmail && (roles.admins.includes(userEmail) || userEmail === ADMIN_EMAIL.toLowerCase());
             const isCoordinator = userEmail && (isAdmin || roles.coordinators.includes(userEmail));
 
             if (!user && currentView !== 'leaderboard') return <Login setView={setCurrentView} />;
 
             switch (currentView) {
-                case 'hub': return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} />;
+                case 'hub': return <LandingHub setView={setCurrentView} user={user} />;
                 case 'leaderboard': return <LeaderboardModule setGlobalView={setCurrentView} user={user} isAdmin={isAdmin} />;
                 case 'ar': return <IncidentModule setGlobalView={setCurrentView} isCoordinator={isCoordinator} isAdmin={isAdmin} userEmail={userEmail} students={students} roles={roles} />;
                 case 'att': return <AttendanceModule setGlobalView={setCurrentView} userEmail={userEmail} students={students} grades={grades} />;
-                case 'calendar': return <CalendarModule setGlobalView={setCurrentView} user={user} grades={grades} />;
-                default: return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} />;
+                case 'calendar': return <CalendarModule setGlobalView={setCurrentView} user={user} grades={grades} isAdmin={isAdmin} />;
+                default: return <LandingHub setView={setCurrentView} user={user} />;
             }
         }
 
@@ -263,8 +267,8 @@
             const [houseTotals, setHouseTotals] = useState({});
 
             useEffect(() => {
-                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals')), snap => {
+                const { db, collection, query, onSnapshot } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'houseTotals')), snap => {
                     const totals = {}; snap.forEach(doc => { totals[doc.id] = doc.data().points || 0; }); setHouseTotals(totals);
                 });
                 return () => unsub();
@@ -340,8 +344,8 @@
             };
             const isComplete = Object.values(ranks).flat().length === 4 && month.trim() !== '';
             const submit = async () => {
-                const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), { teacherEmail: user.email, month, ranks, timestamp: Timestamp.now(), processed: false });
+                const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
+                await addDoc(collection(db, 'rankings'), { teacherEmail: user.email, month, ranks, timestamp: Timestamp.now(), processed: false });
                 setRanks({ first: [], second: [], third: [], fourth: [] }); setMonth(''); alert("Match results submitted!");
             };
             return (
@@ -370,23 +374,23 @@
         function LeaderboardAdmin() {
             const [pending, setPending] = useState([]);
             useEffect(() => {
-                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'rankings')), snap => {
+                const { db, collection, query, onSnapshot } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'rankings')), snap => {
                     const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()})); setPending(list.filter(x => !x.processed));
                 });
                 return () => unsub();
             }, []);
             const processPoints = async () => {
                 if(!confirm("Process all pending points?")) return;
-                const { db, doc, writeBatch, increment, appId } = window.FirebaseDB;
+                const { db, doc, writeBatch, increment } = window.FirebaseDB;
                 const batch = writeBatch(db);
                 const tally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
                 pending.forEach(sub => {
                     (sub.ranks.first||[]).forEach(id => tally[id] += 10); (sub.ranks.second||[]).forEach(id => tally[id] += 7);
                     (sub.ranks.third||[]).forEach(id => tally[id] += 4); (sub.ranks.fourth||[]).forEach(id => tally[id] += 3);
-                    batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', sub.id), {processed: true});
+                    batch.update(doc(db, 'rankings', sub.id), {processed: true});
                 });
-                HOUSES.forEach(h => { if(tally[h.id] > 0) batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', h.id), {points: increment(tally[h.id])}, {merge:true}); });
+                HOUSES.forEach(h => { if(tally[h.id] > 0) batch.set(doc(db, 'houseTotals', h.id), {points: increment(tally[h.id])}, {merge:true}); });
                 await batch.commit(); alert("Points Tallied!");
             };
             return (
@@ -413,8 +417,8 @@
             const [ars, setArs] = useState([]);
             
             useEffect(() => {
-                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections')), snap => {
+                const { db, collection, query, onSnapshot } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'active_reflections')), snap => {
                     const list = []; snap.forEach(doc => list.push({id: doc.id, ...doc.data()}));
                     setArs(list.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)));
                 });
@@ -429,7 +433,7 @@
                             <div className="hidden sm:block text-scis-gold text-xl font-display font-black uppercase ml-2">⚠️ Incidents</div>
                         </div>
                         <div className="flex gap-2 flex-wrap justify-end">
-                            <button onClick={() => setLocalView('form')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'form' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Assign</button>
+                            <button onClick={() => setLocalView('form')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'form' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Assign AR/DR</button>
                             {isCoordinator && <button onClick={() => setLocalView('dashboard')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'dashboard' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Dashboard</button>}
                             {isCoordinator && <button onClick={() => setLocalView('analytics')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'analytics' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Analytics</button>}
                             {isAdmin && <button onClick={() => setLocalView('admin')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'admin' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Admin</button>}
@@ -439,14 +443,14 @@
                         {localView === 'form' && <IncidentForm userEmail={userEmail} students={students} isCoordinator={isCoordinator} />}
                         {localView === 'dashboard' && <IncidentDashboard ars={ars} />}
                         {localView === 'analytics' && <IncidentAnalytics ars={ars} />}
-                        {localView === 'admin' && <IncidentAdmin students={students} roles={roles} />}
+                        {localView === 'admin' && <IncidentAdmin roles={roles} />}
                     </main>
                 </div>
             );
         }
 
         function IncidentForm({ userEmail, students, isCoordinator }) {
-            const GRADES = useMemo(() => [...new Set(students.map(s => s.grade))].sort(), [students]);
+            const GRADES = useMemo(() => [...new Set(students.map(s => s.grade).filter(Boolean))].sort(), [students]);
             const [recordType, setRecordType] = useState('AR'); 
             const [searchMode, setSearchMode] = useState('search');
             const [searchTerm, setSearchTerm] = useState('');
@@ -458,13 +462,13 @@
             const [showPreview, setShowPreview] = useState(false);
 
             const filteredStudents = useMemo(() => {
-                if (searchMode === 'search') return searchTerm.length > 1 ? students.filter(s => s.displayName.includes(searchTerm.toUpperCase())) : [];
+                if (searchMode === 'search') return searchTerm.length > 1 ? students.filter(s => s.displayName.toLowerCase().includes(searchTerm.toLowerCase())) : [];
                 return selectedGrade ? students.filter(s => s.grade === selectedGrade) : [];
             }, [searchTerm, searchMode, selectedGrade, students]);
 
             const submit = async () => {
-                const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections'), {
+                const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
+                await addDoc(collection(db, 'active_reflections'), {
                     studentId: selectedStudent.id, studentName: selectedStudent.displayName, grade: selectedStudent.grade, house: selectedStudent.house,
                     type: recordType, pointDeduction: recordType === 'DR' ? 30 : 3, reason, customReason: reason==='Other - Otro' ? customReason : null, subject, teacherEmail: userEmail, timestamp: Timestamp.now(), status: 'pending'
                 });
@@ -481,24 +485,24 @@
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                         <h3 className="font-bold text-lg text-scis-navy mb-4">1. Select Student</h3>
                         {!selectedStudent ? (
-                            <div>
+                            <div className="relative">
                                 <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
-                                    <button onClick={() => setSearchMode('search')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'search' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Name</button>
-                                    <button onClick={() => setSearchMode('dropdown')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'dropdown' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Grade</button>
+                                    <button onClick={() => setSearchMode('search')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'search' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Search by Name</button>
+                                    <button onClick={() => setSearchMode('dropdown')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'dropdown' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Filter by Grade</button>
                                 </div>
                                 {searchMode === 'search' ? (
-                                    <input type="text" placeholder="Type name (e.g. Perez)..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium" />
+                                    <input type="text" placeholder="Type student name (e.g. Perez)..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium focus:border-scis-navy outline-none" />
                                 ) : (
-                                    <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium">
+                                    <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-bold focus:border-scis-navy outline-none">
                                         <option value="">-- Select Grade --</option>
                                         {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                                     </select>
                                 )}
                                 {filteredStudents.length > 0 && (
-                                    <div className="mt-2 max-h-48 overflow-y-auto border rounded-xl bg-white shadow-lg absolute z-10 w-[calc(100%-4rem)] max-w-2xl">
+                                    <div className="mt-2 max-h-56 overflow-y-auto border rounded-xl bg-white shadow-lg absolute z-10 w-full left-0">
                                         {filteredStudents.map(s => (
-                                            <div key={s.id} onClick={()=>setSelectedStudent(s)} className="p-3 border-b hover:bg-slate-100 cursor-pointer font-bold text-sm flex justify-between">
-                                                <span>{s.displayName}</span> <HouseBadge houseId={s.house} />
+                                            <div key={s.id} onClick={()=>setSelectedStudent(s)} className="p-3 border-b hover:bg-slate-100 cursor-pointer font-bold text-sm flex justify-between items-center">
+                                                <span>{s.displayName} <span className="text-[10px] text-slate-400 ml-2 border px-1 rounded">{s.grade}</span></span> <HouseBadge houseId={s.house} />
                                             </div>
                                         ))}
                                     </div>
@@ -520,12 +524,12 @@
                                 <label className={`flex-1 p-3 rounded-xl border-2 cursor-pointer ${recordType==='DR'?'border-red-600 bg-red-50':'border-slate-200'}`}><input type="radio" className="sr-only" checked={recordType==='DR'} onChange={()=>setRecordType('DR')}/><span className="font-bold text-sm text-red-700">DR (-30 pts)</span></label>
                             </div>
                         )}
-                        <select value={reason} onChange={e=>setReason(e.target.value)} className="w-full p-4 mb-4 bg-slate-50 border rounded-xl font-medium text-sm">
+                        <select value={reason} onChange={e=>setReason(e.target.value)} className="w-full p-4 mb-4 bg-slate-50 border rounded-xl font-medium text-sm focus:border-scis-navy outline-none">
                             <option value="">-- Select Reason --</option>
                             {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         {reason === 'Other - Otro' && <textarea placeholder="Please specify..." value={customReason} onChange={e=>setCustomReason(e.target.value)} className="w-full p-4 mb-4 bg-slate-50 border rounded-xl font-medium text-sm min-h-[80px]"></textarea>}
-                        <select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium text-sm">
+                        <select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium text-sm focus:border-scis-navy outline-none">
                             <option value="">-- Select Subject --</option>
                             {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -562,27 +566,27 @@
             const pending = ars.filter(a => a.status === 'pending' || !a.status);
             const handleAccept = async (ar) => {
                 if(!confirm(`Approve ${ar.type} and deduct points?`)) return;
-                const { db, doc, setDoc, updateDoc, increment, appId } = window.FirebaseDB;
+                const { db, doc, setDoc, updateDoc, increment } = window.FirebaseDB;
                 const deduction = ar.type === 'DR' ? 30 : 3;
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', ar.house), {points: increment(-deduction)}, {merge:true});
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_reflections', ar.id), {status: 'approved'});
+                await setDoc(doc(db, 'houseTotals', ar.house), {points: increment(-deduction)}, {merge:true});
+                await updateDoc(doc(db, 'active_reflections', ar.id), {status: 'approved'});
             };
             const handleDelete = async (id) => {
                 if(!confirm("Permanently delete record?")) return;
-                const { db, doc, deleteDoc, appId } = window.FirebaseDB;
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_reflections', id));
+                const { db, doc, deleteDoc } = window.FirebaseDB;
+                await deleteDoc(doc(db, 'active_reflections', id));
             };
 
             return (
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8 animate-in fade-in">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-display font-black text-scis-navy uppercase">Ledger</h2>
+                        <h2 className="text-2xl font-display font-black text-scis-navy uppercase">Incident Ledger</h2>
                         <span className="bg-scis-gold text-scis-navy px-4 py-1.5 rounded-full text-xs font-black border border-yellow-400">{pending.length} Pending</span>
                     </div>
-                    <div className="overflow-x-auto max-h-[600px]">
+                    <div className="overflow-x-auto max-h-[600px] border rounded-xl">
                         <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-                            <thead className="bg-slate-50 sticky top-0">
-                                <tr><th className="p-4 text-xs font-black text-slate-500 uppercase">Date</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Student</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Type / Reason</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Status / Action</th></tr>
+                            <thead className="bg-slate-50 sticky top-0 border-b">
+                                <tr><th className="p-4 text-xs font-black text-slate-500 uppercase">Date</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Student</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Type / Reason</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Action</th></tr>
                             </thead>
                             <tbody>
                                 {ars.map(ar => (
@@ -593,7 +597,7 @@
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase mr-2 ${ar.type==='DR'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}`}>{ar.type}</span>
                                             <span className="text-xs text-slate-700">{ar.reason==='Other - Otro'?ar.customReason:ar.reason.split('-')[0]}</span>
                                         </td>
-                                        <td className="p-4 flex gap-2">
+                                        <td className="p-4 flex gap-2 items-center">
                                             {ar.status === 'approved' ? (
                                                 <span className="text-green-600 bg-green-50 px-2 py-1 rounded-md text-[10px] font-bold uppercase">✓ Approved</span>
                                             ) : (
@@ -635,8 +639,8 @@
             return (
                 <div className="space-y-6 animate-in fade-in">
                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
-                        <select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} className="p-3 bg-slate-50 border rounded-xl text-sm font-bold text-scis-navy outline-none">
-                            <option value="">All Grades (Analytics)</option>
+                        <select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} className="p-3 bg-slate-50 border rounded-xl text-sm font-bold text-scis-navy outline-none cursor-pointer">
+                            <option value="">All Grades (Analytics Overview)</option>
                             {grades.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                     </div>
@@ -660,7 +664,7 @@
                             <div className="bg-white rounded-3xl p-6 shadow-sm border">
                                 <h3 className="font-display font-black text-lg text-scis-navy mb-4">Top Reasons</h3>
                                 <ul className="space-y-3">
-                                    {analyzedData.topReasons.map((r, i) => <li key={i} className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm"><span className="truncate text-slate-600 mr-2">{r.name}</span><span className="font-black text-scis-navy">{r.count}</span></li>)}
+                                    {analyzedData.topReasons.map((r, i) => <li key={i} className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm"><span className="truncate text-slate-600 mr-2" title={r.name}>{r.name}</span><span className="font-black text-scis-navy">{r.count}</span></li>)}
                                 </ul>
                             </div>
                             <div className="bg-white rounded-3xl p-6 shadow-sm border">
@@ -675,23 +679,24 @@
             );
         }
 
-        function IncidentAdmin({ students, roles }) {
+        function IncidentAdmin({ roles }) {
             const [newEmail, setNewEmail] = useState('');
             const addCoord = async (e) => {
                 e.preventDefault(); if(!newEmail.includes('@')) return;
-                const { db, doc, updateDoc, appId } = window.FirebaseDB;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), { coordinators: [...roles.coordinators, newEmail.toLowerCase().trim()] });
+                const { db, doc, updateDoc } = window.FirebaseDB;
+                await updateDoc(doc(db, 'settings', 'roles'), { coordinators: [...roles.coordinators, newEmail.toLowerCase().trim()] });
                 setNewEmail(''); alert("Added");
             };
             const removeCoord = async (email) => {
-                const { db, doc, updateDoc, appId } = window.FirebaseDB;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), { coordinators: roles.coordinators.filter(e => e !== email) });
+                const { db, doc, updateDoc } = window.FirebaseDB;
+                await updateDoc(doc(db, 'settings', 'roles'), { coordinators: roles.coordinators.filter(e => e !== email) });
             };
             return (
                 <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in">
                     <div className="bg-white rounded-3xl p-6 shadow-sm border">
-                        <h3 className="font-display font-black text-xl text-scis-navy mb-4">Coordinators</h3>
-                        <form onSubmit={addCoord} className="flex gap-2 mb-6"><input type="email" placeholder="Email..." value={newEmail} onChange={e=>setNewEmail(e.target.value)} required className="flex-1 p-3 bg-slate-50 border rounded-xl text-sm" /><button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold btn-press">Add</button></form>
+                        <h3 className="font-display font-black text-xl text-scis-navy mb-4">Coordinator Roles</h3>
+                        <p className="text-sm text-slate-500 mb-6">Users with these emails will see the Dashboard and Analytics tabs.</p>
+                        <form onSubmit={addCoord} className="flex gap-2 mb-6"><input type="email" placeholder="Email address..." value={newEmail} onChange={e=>setNewEmail(e.target.value)} required className="flex-1 p-3 bg-slate-50 border rounded-xl text-sm outline-none focus:border-scis-navy" /><button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold btn-press">Add</button></form>
                         <ul className="space-y-2">
                             {roles.coordinators.map(email => <li key={email} className="p-3 bg-slate-50 border rounded-xl text-sm font-medium flex justify-between">{email}<button onClick={()=>removeCoord(email)} className="text-red-500 font-bold text-xs hover:bg-red-50 px-2 rounded">Remove</button></li>)}
                         </ul>
@@ -727,29 +732,6 @@
             );
         }
 
-        function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
-            const radius = 80;
-            return (
-                <div className="relative flex justify-center items-center h-16 w-16 z-20">
-                    <div className={`text-5xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`} onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onToggle();}}>{currentMood || '😐'}</div>
-                    {isOpen && (
-                        <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
-                            <div className="fixed inset-0 z-40" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onToggle();}}></div>
-                            {MOOD_OPTIONS.map((emoji, i) => {
-                                const angle = (i * (360 / MOOD_OPTIONS.length) - 90) * (Math.PI / 180);
-                                const x = Math.cos(angle) * radius; const y = Math.sin(angle) * radius;
-                                return (
-                                    <div key={emoji} className="absolute z-50 pointer-events-none" style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}>
-                                        <div onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onSelect(emoji);}} className="pointer-events-auto flex items-center justify-center w-14 h-14 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-3xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200" style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'both' }}>{emoji}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
         function AttendanceTaker({ userEmail, students, grades }) {
             const [selectedClass, setSelectedClass] = useState('');
             const [attendance, setAttendance] = useState({});
@@ -771,9 +753,9 @@
 
             const submit = async () => {
                 if (Object.keys(attendance).length !== currentStudents.length) return alert("Mark all students!");
-                const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
+                const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
                 const records = currentStudents.map(s => ({ studentId: s.id, studentName: s.displayName, status: attendance[s.id], mood: moods[s.id] || '😐' }));
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), {
+                await addDoc(collection(db, 'attendance'), {
                     class: selectedClass, teacherEmail: userEmail, timestamp: Timestamp.now(), records,
                     presentCount: Object.values(attendance).filter(v=>v==='P').length, lateCount: Object.values(attendance).filter(v=>v==='L').length, absentCount: Object.values(attendance).filter(v=>v==='A').length
                 });
@@ -785,13 +767,13 @@
             return (
                 <div className="space-y-6">
                     <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row justify-between gap-6 relative z-20">
-                        <div><h2 className="text-3xl font-display font-black text-scis-navy uppercase drop-shadow-sm">Roster</h2><p className="text-slate-600 font-bold uppercase text-xs mt-1">Select mood & mark presence</p></div>
+                        <div><h2 className="text-3xl font-display font-black text-scis-navy uppercase drop-shadow-sm">Roster</h2><p className="text-slate-600 font-bold uppercase text-xs mt-1">Select class, tap to cycle presence</p></div>
                         <div className="flex gap-4">
                             <select value={selectedClass} onChange={e=>{setSelectedClass(e.target.value); setAttendance({}); setMoods({});}} className="p-4 bg-white/90 border-2 border-white/50 rounded-2xl focus:ring-4 focus:ring-scis-gold font-black text-scis-navy text-xl shadow-lg cursor-pointer outline-none">
                                 <option value="">-- Class --</option>
                                 {grades.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
-                            {selectedClass && <button onClick={()=>{const n={}; currentStudents.forEach(s=>n[s.id]='P'); setAttendance(n);}} className="bg-scis-navy text-scis-gold px-6 rounded-2xl font-black uppercase shadow-xl btn-press">All Present</button>}
+                            {selectedClass && currentStudents.length > 0 && <button onClick={()=>{const n={}; currentStudents.forEach(s=>n[s.id]='P'); setAttendance(n);}} className="bg-scis-navy text-scis-gold px-6 rounded-2xl font-black uppercase shadow-xl btn-press">All Present</button>}
                         </div>
                     </div>
                     {selectedClass && currentStudents.length > 0 && (
@@ -804,7 +786,12 @@
                                 else if(st==='A'){ style = "bg-gradient-to-b from-red-400 to-red-500 border-b-red-700 text-white shadow-red-500/50"; lbl="ABSENT"; icn="❌"; }
                                 return (
                                     <div key={s.id} onClick={()=>cycleStudent(s.id)} className={`relative flex flex-col items-center justify-center p-3 rounded-3xl border-2 border-b-[6px] shadow-xl backdrop-blur-md transition-all min-h-[130px] cursor-pointer select-none ${style} ${isAnim?'animate-press3d':''} ${isMenu?'z-50':'z-10'}`}>
-                                        <RadialMoodPicker currentMood={moods[s.id]} isOpen={isMenu} onToggle={()=>setOpenMoodMenuId(isMenu?null:s.id)} onSelect={(e)=>{setMoods(p=>({...p,[s.id]:e}));setOpenMoodMenuId(null);}} />
+                                        <div className="absolute top-0 right-0 p-2 z-20 text-xl hover:scale-125 transition-transform" onClick={e=>{e.stopPropagation(); setOpenMoodMenuId(isMenu?null:s.id);}}>{moods[s.id] || '😐'}</div>
+                                        {isMenu && (
+                                            <div className="absolute inset-0 bg-white/95 rounded-3xl z-50 flex flex-wrap items-center justify-center gap-2 p-2">
+                                                {MOOD_OPTIONS.map(m => <div key={m} onClick={(e)=>{e.stopPropagation(); setMoods(p=>({...p,[s.id]:m})); setOpenMoodMenuId(null);}} className="text-2xl cursor-pointer hover:scale-125">{m}</div>)}
+                                            </div>
+                                        )}
                                         <span className="font-black text-xs text-center z-10 drop-shadow-sm mt-3 truncate w-full px-1">{s.displayName}</span>
                                         <div className="mt-auto pt-2 z-10"><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-inner ${st?'bg-black/20':'bg-slate-200 text-slate-500'}`}>{icn} {lbl}</span></div>
                                     </div>
@@ -827,15 +814,16 @@
             const [selectedClass, setSelectedClass] = useState('');
             
             useEffect(() => {
-                const { db, collection, query, where, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), where("teacherEmail", "==", userEmail)), snap => {
+                const { db, collection, query, where, onSnapshot } = window.FirebaseDB;
+                if(!userEmail) return;
+                const unsub = onSnapshot(query(collection(db, 'attendance'), where("teacherEmail", "==", userEmail)), snap => {
                     const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()}));
                     setLogs(list.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)));
                 });
                 return () => unsub();
             }, [userEmail]);
 
-            const teacherClasses = useMemo(() => [...new Set(logs.map(l => l.class))].sort(), [logs]);
+            const teacherClasses = useMemo(() => [...new Set(logs.map(l => l.class).filter(Boolean))].sort(), [logs]);
             const filteredLogs = useMemo(() => selectedClass ? logs.filter(l => l.class === selectedClass) : logs, [logs, selectedClass]);
 
             const getMatrix = () => {
@@ -908,17 +896,20 @@
         // ==========================================
         // MODULE 4: CALENDAR
         // ==========================================
-        function CalendarModule({ setGlobalView, user, grades }) {
+        function CalendarModule({ setGlobalView, user, grades, isAdmin }) {
             const [tests, setTests] = useState([]);
             const [selectedGrade, setSelectedGrade] = useState('');
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDayView, setSelectedDayView] = useState(null);
-            const [formData, setFormData] = useState({ title: '', date: '', time: '', class: '', teacher: user?.email?.split('@')[0].toUpperCase() || '' });
+            
+            const teacherDefault = user?.email ? user.email.split('@')[0].toUpperCase() : '';
+            const [formData, setFormData] = useState({ title: '', date: '', time: '', class: '', teacher: teacherDefault });
 
             useEffect(() => {
-                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests')), snap => {
-                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()})); setTests(list);
+                const { db, collection, query, onSnapshot } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'scheduled_tests')), snap => {
+                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()})); 
+                    setTests(list.sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
                 });
                 return () => unsub();
             }, []);
@@ -926,30 +917,32 @@
             useEffect(() => { if (selectedGrade) setFormData(p => ({ ...p, class: selectedGrade })); }, [selectedGrade]);
 
             const submit = async (e) => {
-                e.preventDefault(); const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests'), { ...formData, teacherEmail: user.email, timestamp: Timestamp.now() });
+                e.preventDefault(); const { db, collection, addDoc, Timestamp } = window.FirebaseDB;
+                await addDoc(collection(db, 'scheduled_tests'), { ...formData, teacherEmail: user.email, timestamp: Timestamp.now() });
                 setFormData({...formData, title: '', time: ''}); alert("Test Scheduled!");
             };
 
             const handleDelete = async (id) => {
                 if(!confirm("Remove test?")) return;
-                const { db, doc, deleteDoc, appId } = window.FirebaseDB; await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests', id));
+                const { db, doc, deleteDoc } = window.FirebaseDB; 
+                await deleteDoc(doc(db, 'scheduled_tests', id));
+                if (selectedDayView && dayViewTests.length <= 1) setSelectedDayView(null);
             };
 
             const classTests = selectedGrade ? tests.filter(t => t.class === selectedGrade) : tests;
-            const getTestsForDay = (dayStr) => classTests.filter(t => t.date === dayStr).sort((a,b)=>a.time.localeCompare(b.time));
+            const getTestsForDay = (dayStr) => classTests.filter(t => t.date === dayStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
             
             const year = currentDate.getFullYear(); const month = currentDate.getMonth();
             const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDay = new Date(year, month, 1).getDay();
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             
-            const dayViewTests = selectedDayView ? tests.filter(t => t.date === selectedDayView && (!selectedGrade || t.class === selectedGrade)).sort((a,b)=>a.time.localeCompare(b.time)) : [];
+            const dayViewTests = selectedDayView ? tests.filter(t => t.date === selectedDayView && (!selectedGrade || t.class === selectedGrade)).sort((a,b)=>(a.time||'').localeCompare(b.time||'')) : [];
 
             return (
                 <div className="min-h-screen bg-slate-50 animate-in fade-in">
                     <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-40 shadow-md flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <BackToHubBtn setGlobalView={setGlobalView} />
+                            <button onClick={() => setGlobalView('hub')} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">🏠 Back</button>
                             <div className="hidden sm:block text-white text-xl font-display font-black uppercase ml-2">📅 Schedule</div>
                         </div>
                     </nav>
@@ -957,7 +950,7 @@
                     <main className="max-w-7xl mx-auto px-4 py-8">
                         <div className="flex justify-between items-end mb-8">
                             <h2 className="text-3xl font-display font-black text-scis-navy uppercase">Testing Calendar</h2>
-                            <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="p-3 bg-white border-2 rounded-xl font-bold text-scis-navy outline-none">
+                            <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="p-3 bg-white border-2 rounded-xl font-bold text-scis-navy outline-none cursor-pointer">
                                 <option value="">-- All Grades --</option>
                                 {grades.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
@@ -966,22 +959,22 @@
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col">
                                 <div className="flex justify-between items-center mb-6">
-                                    <button onClick={()=>setCurrentDate(new Date(year, month-1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">&larr;</button>
-                                    <h3 className="font-display font-black text-xl text-scis-navy">{monthNames[month]} {year}</h3>
-                                    <button onClick={()=>setCurrentDate(new Date(year, month+1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">&rarr;</button>
+                                    <button onClick={()=>setCurrentDate(new Date(year, month-1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold hover:bg-slate-200">&larr;</button>
+                                    <h3 className="font-display font-black text-2xl text-scis-navy">{monthNames[month]} {year}</h3>
+                                    <button onClick={()=>setCurrentDate(new Date(year, month+1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold hover:bg-slate-200">&rarr;</button>
                                 </div>
-                                <div className="calendar-grid rounded-xl overflow-hidden shadow-inner">
-                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=><div key={d} className="bg-slate-50 p-2 text-center text-xs font-black text-slate-500 uppercase border-b">{d}</div>)}
-                                    {Array.from({length:firstDay}).map((_,i)=><div key={`e-${i}`} className="bg-slate-50/50 min-h-[100px]"></div>)}
+                                <div className="calendar-grid rounded-xl overflow-hidden shadow-inner border border-slate-200">
+                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=><div key={d} className="bg-slate-100 p-2 text-center text-[10px] sm:text-xs font-black text-slate-500 uppercase border-b border-slate-200">{d}</div>)}
+                                    {Array.from({length:firstDay}).map((_,i)=><div key={`e-${i}`} className="bg-slate-50/50 min-h-[100px] border-b border-r border-slate-100"></div>)}
                                     {Array.from({length:daysInMonth}).map((_,i) => {
                                         const dayStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
                                         const dTests = getTestsForDay(dayStr);
                                         let bg = "bg-white"; if(selectedGrade){ bg = dTests.length===1?'bg-green-50':dTests.length===2?'bg-amber-50':dTests.length>=3?'bg-red-50':'bg-white'; }
                                         return (
-                                            <div key={i} onClick={()=>{setFormData(p=>({...p,date:dayStr})); if(dTests.length>0) setSelectedDayView(dayStr);}} className={`${bg} min-h-[100px] p-2 flex flex-col cursor-pointer hover:brightness-95 border-b border-r`}>
-                                                <div className="flex justify-between font-bold text-sm text-slate-600 mb-1">{i+1} {dTests.length>0 && <span className="text-[10px] bg-white shadow-sm px-1.5 rounded">{dTests.length}</span>}</div>
-                                                <div className="flex flex-col gap-1 overflow-hidden no-scrollbar">
-                                                    {dTests.slice(0,3).map(t=><div key={t.id} className="text-[9px] bg-white border rounded p-1 leading-tight truncate"><span className="font-black text-scis-navy">{t.time}</span> {t.title}</div>)}
+                                            <div key={i} onClick={()=>{setFormData(p=>({...p,date:dayStr})); if(dTests.length>0) setSelectedDayView(dayStr);}} className={`${bg} min-h-[100px] p-2 flex flex-col cursor-pointer hover:brightness-95 border-b border-r border-slate-100 transition-colors`}>
+                                                <div className={`flex justify-between font-black text-sm mb-1 ${dTests.length>=3&&selectedGrade?'text-red-700':'text-slate-400'}`}>{i+1} {dTests.length>0 && <span className="text-[10px] bg-white border border-slate-200 shadow-sm px-1.5 rounded">{dTests.length}</span>}</div>
+                                                <div className="flex flex-col gap-1 overflow-hidden no-scrollbar mt-1">
+                                                    {dTests.slice(0,3).map(t=><div key={t.id} className="text-[9px] bg-white border border-slate-200 shadow-sm rounded p-1 leading-tight truncate" title={t.title}><span className="font-black text-scis-navy">{t.time}</span> <span className="text-slate-600">{t.title}</span></div>)}
                                                     {dTests.length>3 && <div className="text-[9px] text-slate-400 font-bold">+ {dTests.length-3} more</div>}
                                                 </div>
                                             </div>
@@ -993,14 +986,14 @@
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 h-fit sticky top-24">
                                 <h3 className="font-display font-black text-xl text-scis-navy mb-4">Add Test</h3>
                                 <form onSubmit={submit} className="space-y-4">
-                                    <select required value={formData.class} onChange={e=>setFormData({...formData, class: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold"><option value="">Class...</option>{grades.map(g => <option key={g} value={g}>{g}</option>)}</select>
-                                    <input type="date" required value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
+                                    <select required value={formData.class} onChange={e=>setFormData({...formData, class: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-scis-navy outline-none"><option value="">Class...</option>{grades.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                                    <input type="date" required value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium outline-none focus:border-scis-navy" />
                                     <div className="flex gap-2">
-                                        <input type="time" required value={formData.time} onChange={e=>setFormData({...formData, time: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium" />
-                                        <input type="text" required placeholder="Teacher" value={formData.teacher} onChange={e=>setFormData({...formData, teacher: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium" />
+                                        <input type="time" required value={formData.time} onChange={e=>setFormData({...formData, time: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium outline-none focus:border-scis-navy" />
+                                        <input type="text" required placeholder="Teacher" value={formData.teacher} onChange={e=>setFormData({...formData, teacher: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium outline-none focus:border-scis-navy" />
                                     </div>
-                                    <input type="text" required placeholder="Subject / Title" value={formData.title} onChange={e=>setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
-                                    <button type="submit" className="w-full bg-scis-navy text-scis-gold py-4 rounded-xl font-black uppercase shadow-md btn-press">Schedule</button>
+                                    <input type="text" required placeholder="Subject / Title" value={formData.title} onChange={e=>setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium outline-none focus:border-scis-navy" />
+                                    <button type="submit" className="w-full bg-scis-navy text-scis-gold py-4 rounded-xl font-black uppercase shadow-md btn-press">Schedule Test</button>
                                 </form>
                             </div>
                         </div>
@@ -1008,13 +1001,13 @@
                         {selectedDayView && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in" onClick={()=>setSelectedDayView(null)}>
                                 <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl" onClick={e=>e.stopPropagation()}>
-                                    <div className="p-6 border-b flex justify-between bg-slate-50 rounded-t-3xl"><h3 className="font-black text-xl">Tests on {selectedDayView}</h3><button onClick={()=>setSelectedDayView(null)} className="font-black">✕</button></div>
+                                    <div className="p-6 border-b flex justify-between bg-slate-50 rounded-t-3xl"><h3 className="font-black text-xl text-scis-navy">Tests on {selectedDayView}</h3><button onClick={()=>setSelectedDayView(null)} className="font-black text-slate-400 hover:text-red-500">✕</button></div>
                                     <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
                                         {dayViewTests.map(t => (
-                                            <div key={t.id} className="p-4 border rounded-xl shadow-sm">
-                                                <div className="font-black text-lg text-scis-navy flex justify-between"><span>{t.title}</span><span className="text-sm bg-slate-100 px-2 py-1 rounded">{t.time}</span></div>
-                                                <div className="text-sm text-slate-500 mt-2 flex justify-between"><span>👤 {t.teacher}</span><span className="font-black text-purple-700 bg-purple-50 px-2 rounded">{t.class}</span></div>
-                                                {(user.email === t.teacherEmail || isAdmin) && <button onClick={()=>handleDelete(t.id)} className="mt-3 text-xs text-red-500 font-bold w-full text-center hover:bg-red-50 py-2 rounded">Delete</button>}
+                                            <div key={t.id} className="p-4 border rounded-xl shadow-sm bg-white">
+                                                <div className="font-black text-lg text-scis-navy flex justify-between items-start"><span className="pr-4 leading-tight">{t.title}</span><span className="text-sm bg-slate-100 border px-2 py-1 rounded whitespace-nowrap">{t.time}</span></div>
+                                                <div className="text-sm text-slate-500 mt-3 flex justify-between items-center"><span>👤 <span className="font-bold">{t.teacher}</span></span><span className="font-black text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded">{t.class}</span></div>
+                                                {(user.email === t.teacherEmail || isAdmin) && <button onClick={()=>handleDelete(t.id)} className="mt-4 text-xs text-red-500 font-bold w-full text-center hover:bg-red-50 border border-red-100 py-2 rounded transition-colors">Delete Test</button>}
                                             </div>
                                         ))}
                                     </div>
