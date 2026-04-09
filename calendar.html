@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCIS Shared Test Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        scis: {
+                            navy: '#0C1D40',
+                            gold: '#FFF86B',
+                            grey: '#A8A6A5'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
+        .btn-press { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-press:active:not(:disabled) { transform: scale(0.97); }
+        
+        /* Calendar Grid Overrides */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 1px;
+            background-color: #e2e8f0;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+            authDomain: "scis-house-points.firebaseapp.com",
+            projectId: "scis-house-points",
+            storageBucket: "scis-house-points.firebasestorage.app",
+            messagingSenderId: "929403398815",
+            appId: "1:929403398815:web:c6634925bfac5b665650aa"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
+
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+        }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        function CalendarApp({ user, grades }) {
+            const [tests, setTests] = useState([]);
+            const [selectedGrade, setSelectedGrade] = useState('');
+            const [currentDate, setCurrentDate] = useState(new Date());
+            
+            // Form State
+            const [formData, setFormData] = useState({
+                title: '',
+                date: '',
+                time: '',
+                teacher: user.email ? user.email.split('@')[0].toUpperCase() : '',
+                class: ''
+            });
+
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            useEffect(() => {
+                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
+                
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests'));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const list = [];
+                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    setTests(list);
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+            // Set default grade for form if one is selected globally
+            useEffect(() => {
+                if (selectedGrade) {
+                    setFormData(prev => ({ ...prev, class: selectedGrade }));
+                }
+            }, [selectedGrade]);
+
+            const handleDelete = async (id) => {
+                if(!confirm("Are you sure you want to remove this scheduled test?")) return;
+                const { db, doc, deleteDoc, appId } = window.FirebaseDB;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests', id));
+                } catch(e) {
+                    alert("Error deleting test.");
+                }
+            };
+
+            const handleAddTest = async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                try {
+                    const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests'), {
+                        ...formData,
+                        teacherEmail: user.email,
+                        timestamp: Timestamp.now()
+                    });
+                    
+                    setFormData({ ...formData, title: '', time: '' }); // Reset partial form
+                    alert("Test scheduled successfully!");
+                } catch (error) {
+                    alert("Failed to schedule test.");
+                }
+                setIsSubmitting(false);
+            };
+
+            const classTests = useMemo(() => {
+                return selectedGrade ? tests.filter(t => t.class === selectedGrade) : tests;
+            }, [tests, selectedGrade]);
+
+            // Calendar Logic
+            const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+            const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const daysInMonth = getDaysInMonth(year, month);
+            const firstDay = getFirstDayOfMonth(year, month);
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+            const changeMonth = (offset) => {
+                setCurrentDate(new Date(year, month + offset, 1));
+            };
+
+            // Get tests for a specific day string (YYYY-MM-DD)
+            const getTestsForDay = (dayStr) => {
+                return classTests.filter(t => t.date === dayStr).sort((a, b) => a.time.localeCompare(b.time));
+            };
+
+            // Determine if the selected date in the form is overloaded
+            const formDateTests = getTestsForDay(formData.date);
+            const isOverloaded = formDateTests.length >= 3;
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-8 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
+                        <div>
+                            <h2 className="text-3xl font-display font-black text-scis-navy uppercase tracking-tight flex items-center gap-2">
+                                📅 Testing Schedule
+                            </h2>
+                            <p className="text-slate-500 text-sm font-medium mt-1">Coordinate and balance assessments across subjects.</p>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            <label className="font-bold text-scis-navy text-sm uppercase tracking-widest">Filter by Grade:</label>
+                            <select 
+                                value={selectedGrade} 
+                                onChange={e => setSelectedGrade(e.target.value)}
+                                className="p-3 bg-white border-2 border-slate-200 rounded-xl focus:border-scis-navy outline-none font-bold text-scis-navy shadow-sm min-w-[150px]"
+                            >
+                                <option value="">-- View All --</option>
+                                {grades.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        
+                        {/* CALENDAR VIEW */}
+                        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                                </button>
+                                <h3 className="font-display font-black text-xl text-scis-navy">{monthNames[month]} {year}</h3>
+                                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                </button>
+                            </div>
+
+                            <div className="calendar-grid flex-1 rounded-xl overflow-hidden shadow-inner">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                    <div key={day} className="bg-slate-50 p-2 text-center text-xs font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                                        {day}
+                                    </div>
+                                ))}
+                                
+                                {Array.from({ length: firstDay }).map((_, i) => (
+                                    <div key={`empty-${i}`} className="bg-slate-50/50 min-h-[100px] sm:min-h-[120px]"></div>
+                                ))}
+
+                                {Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const dayNum = i + 1;
+                                    const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                                    const dayTests = getTestsForDay(dayStr);
+                                    
+                                    // Color logic based on load
+                                    let bgClass = "bg-white";
+                                    let headerClass = "text-slate-600";
+                                    
+                                    if (selectedGrade) {
+                                        if (dayTests.length === 1) bgClass = "bg-green-50";
+                                        else if (dayTests.length === 2) bgClass = "bg-amber-50";
+                                        else if (dayTests.length >= 3) { bgClass = "bg-red-50"; headerClass = "text-red-700 font-black"; }
+                                    }
+
+                                    return (
+                                        <div key={dayNum} className={`${bgClass} min-h-[100px] sm:min-h-[120px] p-2 flex flex-col transition-colors cursor-pointer hover:brightness-95`} onClick={() => setFormData(prev => ({ ...prev, date: dayStr }))}>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className={`text-sm font-bold ${headerClass}`}>{dayNum}</span>
+                                                {dayTests.length > 0 && <span className="text-[9px] font-black bg-white px-1.5 py-0.5 rounded shadow-sm text-slate-500">{dayTests.length}</span>}
+                                            </div>
+                                            <div className="flex flex-col gap-1 overflow-y-auto max-h-[80px] no-scrollbar">
+                                                {dayTests.map(test => (
+                                                    <div key={test.id} className="text-[10px] leading-tight p-1.5 rounded-md border shadow-sm bg-white border-slate-200 relative group">
+                                                        <div className="font-bold text-scis-navy truncate">{test.time} - {test.title}</div>
+                                                        <div className="text-slate-500 truncate flex justify-between">
+                                                            <span>{test.teacher}</span>
+                                                            {!selectedGrade && <span className="font-black text-scis-navy">{test.class}</span>}
+                                                        </div>
+                                                        {(user.email === test.teacherEmail || user.email === 'dolguin@scis-bo.com') && (
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(test.id); }} className="absolute top-1 right-1 text-red-500 opacity-0 group-hover:opacity-100 bg-white rounded-full w-4 h-4 flex items-center justify-center shadow-sm">✕</button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-4 flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest justify-center">
+                                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 rounded border border-green-200"></div> 1 Test</div>
+                                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-100 rounded border border-amber-200"></div> 2 Tests</div>
+                                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-100 rounded border border-red-200"></div> 3+ Tests (Overloaded)</div>
+                            </div>
+                        </div>
+
+                        {/* FORM VIEW */}
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 h-fit sticky top-24">
+                            <h3 className="font-display font-black text-xl text-scis-navy mb-1">Schedule Assessment</h3>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Add to the shared grade calendar</p>
+
+                            <form onSubmit={handleAddTest} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Grade / Class</label>
+                                    <select 
+                                        required
+                                        value={formData.class} 
+                                        onChange={e => setFormData({...formData, class: e.target.value})}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm"
+                                    >
+                                        <option value="">-- Select Class --</option>
+                                        {grades.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Date</label>
+                                    <input 
+                                        type="date" 
+                                        required
+                                        value={formData.date} 
+                                        onChange={e => setFormData({...formData, date: e.target.value})}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm"
+                                    />
+                                    {formData.date && formData.class && (
+                                        <div className={`mt-2 p-2 rounded-lg text-xs font-bold ${isOverloaded ? 'bg-red-100 text-red-700 border border-red-200' : formDateTests.length === 2 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                            {isOverloaded ? `⚠️ Overload Warning: ${formData.class} already has ${formDateTests.length} tests on this date.` : `${formData.class} has ${formDateTests.length} tests on this date.`}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Time</label>
+                                        <input 
+                                            type="time" 
+                                            required
+                                            value={formData.time} 
+                                            onChange={e => setFormData({...formData, time: e.target.value})}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Teacher</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            placeholder="Your Name"
+                                            value={formData.teacher} 
+                                            onChange={e => setFormData({...formData, teacher: e.target.value})}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Test Title / Subject</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        placeholder="e.g. Unit 3 Math Exam"
+                                        value={formData.title} 
+                                        onChange={e => setFormData({...formData, title: e.target.value})}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-scis-navy outline-none font-medium text-sm"
+                                    />
+                                </div>
+
+                                <button 
+                                    type="submit" 
+                                    disabled={isSubmitting}
+                                    className="w-full mt-4 btn-press bg-scis-navy text-scis-gold py-4 rounded-xl font-display font-black text-lg tracking-widest uppercase shadow-md flex justify-center items-center gap-2"
+                                >
+                                    {isSubmitting ? 'Saving...' : 'Add to Calendar 📌'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            if (!window.FirebaseDB) return <div className="p-10 text-center font-display font-black text-xl text-scis-navy">Initializing System...</div>;
+
+            const [user, setUser] = useState(null);
+            const [authLoaded, setAuthLoaded] = useState(false);
+            const [grades, setGrades] = useState([]);
+
+            useEffect(() => {
+                const { auth, db, collection, query, onSnapshot, appId, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseDB;
+                
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else if (!window.location.hostname.includes('github.io') && window.location.hostname !== 'localhost') {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) { console.error("Auth init failed:", e); }
+                };
+
+                initAuth();
+
+                const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    setAuthLoaded(true);
+                });
+
+                // Fetch Grades dynamically from the students database to match existing portals
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+                const unsubscribeStudents = onSnapshot(q, (snapshot) => {
+                    const gradeSet = new Set();
+                    snapshot.forEach(doc => {
+                        let g = doc.data().grade;
+                        if (g) {
+                            // Normalize legacy data based on previous portal logic
+                            gradeSet.add(g.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB').toUpperCase());
+                        }
+                    });
+                    setGrades([...gradeSet].sort());
+                });
+
+                return () => {
+                    unsubscribeAuth();
+                    unsubscribeStudents();
+                };
+            }, []);
+
+            const handleLogin = async () => {
+                const { auth, signInWithPopup, OAuthProvider } = window.FirebaseDB;
+                const provider = new OAuthProvider('microsoft.com');
+                provider.setCustomParameters({ tenant: 'scis-bo.com' });
+                try { await signInWithPopup(auth, provider); } catch (error) { console.error("Login failed:", error); }
+            };
+
+            const handleLogout = async () => {
+                const { auth, signOut } = window.FirebaseDB;
+                await signOut(auth);
+            };
+
+            if (!authLoaded) return <div className="flex h-screen items-center justify-center font-display font-black text-xl text-scis-navy animate-pulse">Connecting...</div>;
+
+            // Enforce Authentication
+            if (!user || (!user.email && !user.isAnonymous)) {
+                return (
+                    <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-6 text-center">
+                        <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
+                            <div className="bg-scis-gold text-scis-navy w-16 h-16 mx-auto flex items-center justify-center rounded-2xl shadow-inner mb-6 text-3xl">📅</div>
+                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Scheduler</h2>
+                            <p className="text-slate-500 text-sm font-medium mb-8">Sign in with your school email to access the shared calendars.</p>
+                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm btn-press">
+                                <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#7fba00" d="M11 0h10v10H11z"/><path fill="#00a4ef" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
+                                Sign In with Microsoft
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen">
+                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 py-3 sticky top-0 z-40 shadow-md">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-scis-gold text-scis-navy w-8 h-8 flex items-center justify-center rounded-lg shadow-inner text-lg">📅</div>
+                                <div>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block">Testing Calendar</h1>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden">Calendar</h1>
+                                    {user?.email && <div className="text-[10px] text-scis-gold font-medium">{user.email}</div>}
+                                </div>
+                            </div>
+                            
+                            <button onClick={handleLogout} className="text-white hover:text-red-400 p-2 transition-colors" title="Sign Out">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            </button>
+                        </div>
+                    </nav>
+
+                    <main>
+                        <CalendarApp user={user} grades={grades} />
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
