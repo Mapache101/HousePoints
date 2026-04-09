@@ -98,6 +98,13 @@
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDayView, setSelectedDayView] = useState(null); 
 
+            // Auto-select the first grade when grades are loaded
+            useEffect(() => {
+                if (grades.length > 0 && !selectedGrade) {
+                    setSelectedGrade(grades[0]);
+                }
+            }, [grades, selectedGrade]);
+
             useEffect(() => {
                 const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
                 
@@ -158,7 +165,6 @@
                                 onChange={e => setSelectedGrade(e.target.value)}
                                 className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-scis-navy outline-none font-bold text-scis-navy shadow-sm min-w-[200px] w-full"
                             >
-                                <option value="">-- View All Grades --</option>
                                 {grades.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
                         </div>
@@ -221,7 +227,6 @@
                                                     <div className="font-bold text-scis-navy truncate mb-0.5">{test.time} - {test.title}</div>
                                                     <div className="text-slate-500 text-[10px] truncate flex justify-between">
                                                         <span>{test.teacher}</span>
-                                                        {!selectedGrade && <span className="font-black text-scis-navy">{test.class}</span>}
                                                     </div>
                                                 </div>
                                             ))}
