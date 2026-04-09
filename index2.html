@@ -3,19 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SCIS Portal Hub</title>
+    <title>SCIS Teacher Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: {
-                        scis: { navy: '#0C1D40', gold: '#FFF86B', grey: '#A8A6A5' }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        display: ['Outfit', 'sans-serif'],
-                    },
+                    colors: { scis: { navy: '#0C1D40', gold: '#FFF86B', grey: '#A8A6A5' } },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Outfit', 'sans-serif'] },
                     animation: {
                         'bounce-slow': 'bounce 3s infinite',
                         'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
@@ -40,40 +35,36 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
         
-        /* Shared Interactive Elements */
+        /* Unified Interactive Elements */
         .btn-press, .btn-game { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-press:active:not(:disabled), .btn-game:active:not(:disabled) { transform: scale(0.95); }
         .loading-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .bar-transition { transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-        /* Module Specific Styles */
+        /* Unified Scrollbars */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .no-scrollbar, .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
+        /* Attendance & Calendar specific styles */
         .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5); }
         .bg-gradient-animate { background: linear-gradient(-45deg, #0C1D40, #132a54, #081226, #1b3a6e); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-
         .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* AR Radio Buttons */
+        input[type="radio"]:checked + div { border-color: #0C1D40; background-color: #eff6ff; }
+        input[type="radio"]:checked + div .radio-indicator { background-color: #0C1D40; border-color: #0C1D40; }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div class="flex h-screen items-center justify-center bg-slate-50">
-            <div class="text-center bg-white p-10 rounded-3xl border-2 border-slate-100 border-b-8 border-b-scis-navy shadow-xl">
-                <div class="mb-6 inline-block h-12 w-12 border-8 border-scis-gold border-t-scis-navy rounded-full loading-spin"></div>
-                <p class="font-display font-black text-xl uppercase tracking-widest text-scis-navy">Initializing Portal...</p>
-            </div>
-        </div>
-    </div>
+    <div id="root"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -91,16 +82,16 @@
         
         try {
             const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            window.FirebaseDB = { db, auth, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, appId: 'scis-house-points' };
+            window.FirebaseDB = { 
+                db: getFirestore(app), auth: getAuth(app), collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment, query, where, getDocs, writeBatch, Timestamp, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, appId: 'scis-house-points' 
+            };
         } catch (error) { console.error("Firebase Init Error:", error); }
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- SHARED DATA CONSTANTS ---
+        // --- SHARED CONSTANTS ---
         const ADMIN_EMAIL = 'dolguin@scis-bo.com';
         const HOUSES = [
             { id: 'centaurs', name: 'Centaurs', color: '#3b82f6', icon: '🏹', bg: 'bg-blue-100', text: 'text-blue-700' }, 
@@ -121,9 +112,7 @@
             "Physics", "Physical Education", "Maths / Kingsley", "Maths / Silvia", "Maths / Guillermo", "English / Elvia", "English / Sara", 
             "English / Letty", "ICT", "Biology", "Art", "Music", "Global Perspectives / Ms Wei", "Global Perspectives / Ms Bell", "Business Studies", "Homeroom"
         ];
-        const SCHEDULE = [
-            { day: 1, start: '08:00', end: '09:30', class: '1sA' }, { day: 1, start: '09:45', end: '11:15', class: '2sB' }, { day: 2, start: '08:00', end: '09:30', class: '3sA' },
-        ];
+        const SCHEDULE = [ { day: 1, start: '08:00', end: '09:30', class: '1sA' }, { day: 1, start: '09:45', end: '11:15', class: '2sB' }, { day: 2, start: '08:00', end: '09:30', class: '3sA' } ];
 
         const formatDateTime = (timestamp) => {
             if (!timestamp) return '';
@@ -131,26 +120,15 @@
             return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         };
 
-        // --- SHARED UI COMPONENTS ---
         function HouseBadge({ houseId }) {
             const house = HOUSES.find(h => h.id === houseId);
             if (!house) return null;
-            return (
-                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${house.bg} ${house.text} border border-${house.color}/20`}>
-                    {house.icon} {house.name}
-                </span>
-            );
+            return <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${house.bg} ${house.text} border border-${house.color}/20`}>{house.icon} {house.name}</span>;
         }
 
-        function BackToHubBtn({ setGlobalView }) {
-            return (
-                <button onClick={() => setGlobalView('hub')} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors border border-white/10 shadow-sm backdrop-blur-sm">
-                    <span>🏠</span> <span className="hidden sm:inline">Back to Hub</span>
-                </button>
-            );
-        }
-
-        // --- CORE APPLICATION ROUTER ---
+        // ==========================================
+        // MAIN APP & HUB ROUTER
+        // ==========================================
         function App() {
             const [user, setUser] = useState(null);
             const [roles, setRoles] = useState({ admins: [], coordinators: [] });
@@ -160,35 +138,20 @@
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                const checkDb = setInterval(() => {
-                    if (window.FirebaseDB) { clearInterval(checkDb); initApp(); }
-                }, 100);
-
+                const checkDb = setInterval(() => { if (window.FirebaseDB) { clearInterval(checkDb); initApp(); } }, 100);
                 function initApp() {
                     const { auth, db, doc, collection, query, onSnapshot, setDoc, onAuthStateChanged, appId } = window.FirebaseDB;
-                    
                     onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
 
                     // Fetch Roles
-                    const rolesDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles');
-                    onSnapshot(rolesDoc, (docSnap) => {
-                        if (docSnap.exists()) {
-                            setRoles({
-                                admins: (docSnap.data().admins || []).map(e => e.toLowerCase()),
-                                coordinators: (docSnap.data().coordinators || []).map(e => e.toLowerCase())
-                            });
-                        } else {
-                            const initRoles = { admins: [ADMIN_EMAIL], coordinators: [] };
-                            setDoc(rolesDoc, initRoles);
-                            setRoles(initRoles);
-                        }
+                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), (docSnap) => {
+                        if (docSnap.exists()) setRoles({ admins: (docSnap.data().admins || []).map(e => e.toLowerCase()), coordinators: (docSnap.data().coordinators || []).map(e => e.toLowerCase()) });
+                        else { const initRoles = { admins: [ADMIN_EMAIL], coordinators: [] }; setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), initRoles); setRoles(initRoles); }
                     });
 
-                    // Fetch Students globally to feed modules
-                    const stuQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
-                    onSnapshot(stuQ, (snapshot) => {
-                        const list = [];
-                        const gradeSet = new Set();
+                    // Fetch Students Globally
+                    onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'students')), (snapshot) => {
+                        const list = []; const gradeSet = new Set();
                         snapshot.forEach(doc => {
                             let data = doc.data();
                             let fg = (data.grade || '').replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
@@ -196,94 +159,46 @@
                             list.push({ id: doc.id, ...data, grade: fg, displayName: (data.name || '').toUpperCase() });
                         });
                         list.sort((a,b) => a.displayName.localeCompare(b.displayName));
-                        setStudents(list);
-                        setGrades([...gradeSet].sort());
+                        setStudents(list); setGrades([...gradeSet].sort());
                     });
                 }
             }, []);
 
-            const handleLogout = () => { window.FirebaseDB.signOut(window.FirebaseDB.auth); setCurrentView('hub'); };
-            
             if (loading) return <div className="flex h-screen items-center justify-center"><div className="loading-spin h-12 w-12 border-8 border-scis-gold border-t-scis-navy rounded-full"></div></div>;
 
             const userEmail = user?.email?.toLowerCase();
             const isAdmin = userEmail && (roles.admins.includes(userEmail) || userEmail === ADMIN_EMAIL);
             const isCoordinator = userEmail && (isAdmin || roles.coordinators.includes(userEmail));
 
-            const renderView = () => {
-                if (!user && currentView !== 'leaderboard') return <Login setView={setCurrentView} />;
-                switch (currentView) {
-                    case 'hub': return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} handleLogout={handleLogout} />;
-                    case 'leaderboard': return <LeaderboardModule setGlobalView={setCurrentView} user={user} isAdmin={isAdmin} />;
-                    case 'ar': return <IncidentModule setGlobalView={setCurrentView} isCoordinator={isCoordinator} isAdmin={isAdmin} userEmail={userEmail} students={students} roles={roles} />;
-                    case 'att': return <AttendanceModule setGlobalView={setCurrentView} userEmail={userEmail} students={students} />;
-                    case 'calendar': return <CalendarModule setGlobalView={setCurrentView} user={user} grades={grades} />;
-                    default: return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} handleLogout={handleLogout} />;
-                }
-            };
+            if (!user && currentView !== 'leaderboard') return <Login setView={setCurrentView} />;
 
-            return <div className="min-h-screen bg-slate-50">{renderView()}</div>;
+            switch (currentView) {
+                case 'hub': return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} />;
+                case 'leaderboard': return <LeaderboardModule setGlobalView={setCurrentView} user={user} isAdmin={isAdmin} />;
+                case 'ar': return <IncidentModule setGlobalView={setCurrentView} isCoordinator={isCoordinator} isAdmin={isAdmin} userEmail={userEmail} students={students} roles={roles} />;
+                case 'att': return <AttendanceModule setGlobalView={setCurrentView} userEmail={userEmail} students={students} grades={grades} />;
+                case 'calendar': return <CalendarModule setGlobalView={setCurrentView} user={user} grades={grades} />;
+                default: return <LandingHub setView={setCurrentView} isAdmin={isAdmin} isCoordinator={isCoordinator} user={user} />;
+            }
         }
 
-        // --- THE HUB ---
-        function LandingHub({ setView, isAdmin, isCoordinator, user, handleLogout }) {
-            return (
-                <div>
-                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-4 flex justify-between items-center shadow-lg">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-scis-gold text-scis-navy w-10 h-10 flex items-center justify-center rounded-xl shadow-inner text-xl">🦅</div>
-                            <div>
-                                <h1 className="text-xl font-display font-black text-white tracking-tight uppercase leading-none">SCIS Portal Hub</h1>
-                                <p className="text-[10px] text-scis-gold font-bold uppercase tracking-widest">{user?.email || 'Guest'}</p>
-                            </div>
-                        </div>
-                        <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-600 shadow-md">Sign Out</button>
-                    </nav>
-
-                    <main className="max-w-5xl mx-auto p-6 md:p-10 mt-4 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="mb-10 text-center">
-                            <h2 className="text-4xl font-display font-black text-scis-navy uppercase tracking-tight mb-2">Welcome to the Hub</h2>
-                            <p className="text-slate-500 font-medium">Select a module below to access your tools.</p>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <HubCard title="House Points" icon="🏆" desc="View leaderboard & award monthly points." onClick={() => setView('leaderboard')} color="bg-white border-blue-200 hover:border-blue-500 text-blue-900" />
-                            <HubCard title="AR / DR Portal" icon="⚠️" desc="Issue and manage behavioral incidents." onClick={() => setView('ar')} color="bg-white border-amber-200 hover:border-amber-500 text-amber-900" />
-                            <HubCard title="Attendance Kiosk" icon="📝" desc="Touch-screen class roster and mood tracker." onClick={() => setView('att')} color="bg-white border-green-200 hover:border-green-500 text-green-900" />
-                            <HubCard title="Testing Calendar" icon="📅" desc="Schedule and balance student assessments." onClick={() => setView('calendar')} color="bg-white border-purple-200 hover:border-purple-500 text-purple-900" />
-                            
-                            {/* Locked Cards for visual hierarchy if not authorized, or completely hidden. Hidden is cleaner. */}
-                        </div>
-                    </main>
-                </div>
-            );
-        }
-
-        function HubCard({ title, icon, desc, onClick, color }) {
-            return (
-                <div onClick={onClick} className={`p-8 rounded-[2rem] border-2 shadow-sm cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-xl btn-press ${color}`}>
-                    <div className="text-5xl mb-4 drop-shadow-sm">{icon}</div>
-                    <h3 className="text-2xl font-display font-black uppercase tracking-tight mb-2 leading-tight">{title}</h3>
-                    <p className="text-sm font-bold opacity-70 leading-snug">{desc}</p>
-                </div>
-            );
-        }
-
+        // ==========================================
+        // LOGIN & HUB COMPONENTS
+        // ==========================================
         function Login() {
             const handleLogin = async () => {
-                try {
-                    const { auth, OAuthProvider, signInWithPopup } = window.FirebaseDB;
-                    const provider = new OAuthProvider('microsoft.com');
-                    provider.setCustomParameters({ tenant: 'scis-bo.com' });
-                    await signInWithPopup(auth, provider);
-                } catch (err) { alert("Failed to authenticate with Microsoft."); }
+                const { auth, OAuthProvider, signInWithPopup } = window.FirebaseDB;
+                const provider = new OAuthProvider('microsoft.com');
+                provider.setCustomParameters({ tenant: 'scis-bo.com' });
+                try { await signInWithPopup(auth, provider); } catch (err) { alert("Failed to authenticate."); }
             };
 
             return (
                 <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-6 text-center relative overflow-hidden">
+                    <div className="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-animate pointer-events-none"></div>
                     <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl max-w-sm w-full animate-slide-up z-10 border-b-8 border-scis-gold">
                         <div className="bg-scis-gold text-scis-navy w-20 h-20 mx-auto flex items-center justify-center rounded-[1.5rem] shadow-inner text-4xl mb-6">🦅</div>
-                        <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Portal</h2>
+                        <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">SCIS Hub</h2>
                         <p className="text-slate-500 text-sm font-bold mb-8">Authenticate with Microsoft.</p>
                         <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-scis-navy font-black py-4 px-4 rounded-2xl hover:bg-slate-50 transition-all shadow-md btn-press">
                             Sign In to Access
@@ -293,8 +208,55 @@
             );
         }
 
+        function LandingHub({ setView, user }) {
+            return (
+                <div className="min-h-screen bg-slate-50">
+                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-4 flex justify-between items-center shadow-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-scis-gold text-scis-navy w-10 h-10 flex items-center justify-center rounded-xl shadow-inner text-xl">🦅</div>
+                            <div>
+                                <h1 className="text-xl font-display font-black text-white tracking-tight uppercase leading-none">SCIS Portal Hub</h1>
+                                <p className="text-[10px] text-scis-gold font-bold uppercase tracking-widest">{user?.email || 'Guest'}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => window.FirebaseDB.signOut(window.FirebaseDB.auth)} className="bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-600 shadow-md btn-press">Sign Out</button>
+                    </nav>
+
+                    <main className="max-w-5xl mx-auto p-6 md:p-10 mt-4 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="mb-10 text-center">
+                            <h2 className="text-4xl font-display font-black text-scis-navy uppercase tracking-tight mb-2">Welcome to the Hub</h2>
+                            <p className="text-slate-500 font-medium">Select a module below to access your tools.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div onClick={() => setView('leaderboard')} className="p-8 rounded-[2rem] border-2 shadow-sm cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-xl btn-press bg-white border-blue-200 text-blue-900">
+                                <div className="text-5xl mb-4 drop-shadow-sm">🏆</div>
+                                <h3 className="text-2xl font-display font-black uppercase tracking-tight mb-2">House Points</h3>
+                                <p className="text-sm font-bold opacity-70 leading-snug">Leaderboard & Award Monthly Points.</p>
+                            </div>
+                            <div onClick={() => setView('ar')} className="p-8 rounded-[2rem] border-2 shadow-sm cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-xl btn-press bg-white border-amber-200 text-amber-900">
+                                <div className="text-5xl mb-4 drop-shadow-sm">⚠️</div>
+                                <h3 className="text-2xl font-display font-black uppercase tracking-tight mb-2">AR Portal</h3>
+                                <p className="text-sm font-bold opacity-70 leading-snug">Issue incidents & Analytics.</p>
+                            </div>
+                            <div onClick={() => setView('att')} className="p-8 rounded-[2rem] border-2 shadow-sm cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-xl btn-press bg-white border-green-200 text-green-900">
+                                <div className="text-5xl mb-4 drop-shadow-sm">📝</div>
+                                <h3 className="text-2xl font-display font-black uppercase tracking-tight mb-2">Attendance</h3>
+                                <p className="text-sm font-bold opacity-70 leading-snug">Kiosk roster & Mood tracker.</p>
+                            </div>
+                            <div onClick={() => setView('calendar')} className="p-8 rounded-[2rem] border-2 shadow-sm cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-xl btn-press bg-white border-purple-200 text-purple-900">
+                                <div className="text-5xl mb-4 drop-shadow-sm">📅</div>
+                                <h3 className="text-2xl font-display font-black uppercase tracking-tight mb-2">Calendar</h3>
+                                <p className="text-sm font-bold opacity-70 leading-snug">Balance student assessments.</p>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
         // ==========================================
-        // MODULE 1: LEADERBOARD & POINTS
+        // MODULE 1: LEADERBOARD
         // ==========================================
         function LeaderboardModule({ setGlobalView, user, isAdmin }) {
             const [localView, setLocalView] = useState('public');
@@ -302,84 +264,72 @@
 
             useEffect(() => {
                 const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const totalsRef = collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals');
-                const unsub = onSnapshot(query(totalsRef), (snapshot) => {
-                    const totals = {};
-                    snapshot.forEach(doc => { totals[doc.id] = doc.data().points || 0; });
-                    setHouseTotals(totals);
+                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'houseTotals')), snap => {
+                    const totals = {}; snap.forEach(doc => { totals[doc.id] = doc.data().points || 0; }); setHouseTotals(totals);
                 });
                 return () => unsub();
             }, []);
 
             return (
-                <div className="min-h-screen bg-slate-50">
-                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-50 shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="min-h-screen bg-slate-50 animate-in fade-in">
+                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-50 shadow-lg flex justify-between items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <BackToHubBtn setGlobalView={setGlobalView} />
-                            <div className="hidden sm:block text-scis-gold text-xl font-display font-black uppercase ml-2">🏆 House Cup</div>
+                            <button onClick={() => setGlobalView('hub')} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">🏠 Back</button>
+                            <div className="hidden sm:block text-scis-gold text-xl font-display font-black uppercase ml-2">🏆 Leaderboard</div>
                         </div>
-                        <div className="flex flex-wrap justify-center gap-2">
-                            <button onClick={() => setLocalView('public')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${localView === 'public' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Board</button>
-                            {user && <button onClick={() => setLocalView('teacher')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${localView === 'teacher' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Award</button>}
-                            {isAdmin && <button onClick={() => setLocalView('admin')} className={`btn-game px-4 py-2 rounded-xl text-sm font-bold transition border-2 border-b-4 ${localView === 'admin' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Admin</button>}
+                        <div className="flex gap-2">
+                            <button onClick={() => setLocalView('public')} className={`btn-game px-3 py-1.5 rounded-lg text-xs font-bold transition border-2 border-b-4 ${localView === 'public' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Board</button>
+                            {user && <button onClick={() => setLocalView('teacher')} className={`btn-game px-3 py-1.5 rounded-lg text-xs font-bold transition border-2 border-b-4 ${localView === 'teacher' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Award</button>}
+                            {isAdmin && <button onClick={() => setLocalView('admin')} className={`btn-game px-3 py-1.5 rounded-lg text-xs font-bold transition border-2 border-b-4 ${localView === 'admin' ? 'bg-scis-gold text-scis-navy border-yellow-600' : 'bg-white/10 text-white border-transparent'}`}>Admin</button>}
                         </div>
                     </nav>
                     <div className="max-w-6xl mx-auto p-4 md:p-8 mt-4">
-                        {localView === 'public' && <Dashboard houseTotals={houseTotals} />}
-                        {localView === 'teacher' && <Teacher user={user} />}
-                        {localView === 'admin' && <Admin houseTotals={houseTotals} />}
+                        {localView === 'public' && <LeaderboardDashboard houseTotals={houseTotals} />}
+                        {localView === 'teacher' && <LeaderboardTeacher user={user} />}
+                        {localView === 'admin' && <LeaderboardAdmin />}
                     </div>
                 </div>
             );
         }
 
-        // Leaderboard Sub-components
-        function Dashboard({ houseTotals }) {
+        function LeaderboardDashboard({ houseTotals }) {
             const data = HOUSES.map(h => ({ name: h.name, points: houseTotals[h.id] || 0, color: h.color, icon: h.icon })).sort((a,b) => b.points - a.points);
+            const maxPoints = Math.max(...data.map(d => d.points), 10); 
             return (
-                <div className="space-y-10 animate-in fade-in duration-500">
+                <div className="space-y-10">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-                        {data.map((h, index) => {
-                            const isFirst = index === 0 && h.points > 0;
-                            return (
-                                <div key={h.name} className="bg-white p-6 rounded-3xl border-2 border-b-8 shadow-sm text-center relative" style={{ borderColor: h.color }}>
-                                    {isFirst && <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1 rounded-full shadow-md uppercase tracking-widest border-2 border-yellow-200 z-10">🥇 1st Place</div>}
-                                    <div className="text-4xl mb-3 drop-shadow-md">{h.icon}</div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{h.name}</p>
-                                    <p className="text-5xl font-display font-black" style={{ color: h.color }}>{h.points}</p>
-                                </div>
-                            );
-                        })}
+                        {data.map((h, i) => (
+                            <div key={h.name} className="bg-white p-6 rounded-3xl border-2 border-b-8 shadow-sm text-center relative" style={{ borderColor: h.color }}>
+                                {i === 0 && h.points > 0 && <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1 rounded-full shadow-md uppercase tracking-widest border-2 border-yellow-200 z-10">🥇 1st Place</div>}
+                                <div className="text-4xl mb-3 drop-shadow-md">{h.icon}</div>
+                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{h.name}</p>
+                                <p className="text-5xl font-display font-black" style={{ color: h.color }}>{h.points}</p>
+                            </div>
+                        ))}
                     </div>
                     <div className="bg-white p-6 md:p-10 rounded-3xl border-2 border-slate-100 shadow-sm">
                         <h2 className="text-2xl font-display font-black mb-8 text-scis-navy uppercase">📊 Live Standings</h2>
-                        <CustomBarChart data={data} />
-                    </div>
-                </div>
-            );
-        }
-        function CustomBarChart({ data }) {
-            const maxPoints = Math.max(...data.map(d => d.points), 10); 
-            return (
-                <div className="w-full h-72 flex items-end justify-around pt-10 pb-4 border-b-4 border-slate-200 relative">
-                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 z-0">
-                        <div className="w-full border-b-2 border-dashed border-slate-400"></div><div className="w-full border-b-2 border-dashed border-slate-400"></div><div className="w-full border-b-2 border-dashed border-slate-400"></div>
-                    </div>
-                    {data.map(house => (
-                        <div key={house.name} className="flex flex-col items-center justify-end h-full flex-1 group z-10">
-                            <div className="w-12 sm:w-20 rounded-t-xl transition-all duration-1000" style={{ height: `${Math.max((house.points/maxPoints)*100, 5)}%`, backgroundColor: house.color }}>
-                                <div className="w-1/3 h-full bg-white/20"></div>
+                        <div className="w-full h-72 flex items-end justify-around pt-10 pb-4 border-b-4 border-slate-200 relative">
+                            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 z-0">
+                                <div className="w-full border-b-2 border-dashed border-slate-400"></div><div className="w-full border-b-2 border-dashed border-slate-400"></div><div className="w-full border-b-2 border-dashed border-slate-400"></div>
                             </div>
-                            <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest mt-4">{house.name}</span>
+                            {data.map(house => (
+                                <div key={house.name} className="flex flex-col items-center justify-end h-full flex-1 group z-10">
+                                    <div className="w-12 sm:w-20 rounded-t-xl transition-all duration-1000" style={{ height: `${Math.max((house.points/maxPoints)*100, 5)}%`, backgroundColor: house.color }}>
+                                        <div className="w-1/3 h-full bg-white/20"></div>
+                                    </div>
+                                    <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest mt-4">{house.name}</span>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
                 </div>
             );
         }
-        function Teacher({ user }) {
+
+        function LeaderboardTeacher({ user }) {
             const [month, setMonth] = useState('');
             const [ranks, setRanks] = useState({ first: [], second: [], third: [], fourth: [] });
-            
             const toggleHouse = (place, hId) => {
                 setRanks(prev => {
                     const newRanks = { first: [...prev.first], second: [...prev.second], third: [...prev.third], fourth: [...prev.fourth] };
@@ -389,17 +339,13 @@
                 });
             };
             const isComplete = Object.values(ranks).flat().length === 4 && month.trim() !== '';
-
             const submit = async () => {
-                if(!isComplete) return;
                 const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'), { teacherEmail: user.email, month, ranks, timestamp: Timestamp.now(), processed: false });
-                setRanks({ first: [], second: [], third: [], fourth: [] }); setMonth('');
-                alert("Match results submitted to Admin!");
+                setRanks({ first: [], second: [], third: [], fourth: [] }); setMonth(''); alert("Match results submitted!");
             };
-
             return (
-                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl border-2 border-slate-100 shadow-xl animate-in fade-in">
+                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl border-2 border-slate-100 shadow-xl">
                     <h2 className="text-3xl font-display font-black text-scis-navy uppercase mb-6">Submit Rankings</h2>
                     <input type="text" value={month} onChange={e=>setMonth(e.target.value)} placeholder="Month (e.g. March)" className="w-full p-4 mb-6 bg-slate-50 border-2 rounded-xl focus:border-scis-navy font-black text-scis-navy" />
                     <div className="space-y-4 mb-8">
@@ -408,7 +354,7 @@
                                 <span className="font-black uppercase text-sm text-slate-500">{i+1}st Place</span>
                                 <div className="flex gap-3">
                                     {HOUSES.map(h => (
-                                        <button key={h.id} onClick={()=>toggleHouse(p, h.id)} className={`flex-1 p-3 rounded-xl border-2 font-black uppercase text-xs ${ranks[p].includes(h.id) ? 'text-white border-transparent' : 'bg-white text-slate-500 hover:bg-slate-100'}`} style={{backgroundColor: ranks[p].includes(h.id) ? h.color : ''}}>
+                                        <button key={h.id} onClick={()=>toggleHouse(p, h.id)} className={`flex-1 p-3 rounded-xl border-2 font-black uppercase text-xs transition-colors btn-press ${ranks[p].includes(h.id) ? 'text-white border-transparent' : 'bg-white text-slate-500 hover:bg-slate-100'}`} style={{backgroundColor: ranks[p].includes(h.id) ? h.color : ''}}>
                                             {h.name}
                                         </button>
                                     ))}
@@ -416,122 +362,142 @@
                             </div>
                         ))}
                     </div>
-                    <button onClick={submit} disabled={!isComplete} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl uppercase disabled:opacity-50">Submit Results</button>
+                    <button onClick={submit} disabled={!isComplete} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl font-black text-xl uppercase disabled:opacity-50 btn-press">Submit Results</button>
                 </div>
             );
         }
-        function Admin() {
+
+        function LeaderboardAdmin() {
             const [pending, setPending] = useState([]);
             useEffect(() => {
                 const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'rankings'));
-                const unsub = onSnapshot(q, snap => {
-                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()}));
-                    setPending(list.filter(x => !x.processed));
+                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'rankings')), snap => {
+                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()})); setPending(list.filter(x => !x.processed));
                 });
                 return () => unsub();
             }, []);
-
             const processPoints = async () => {
                 if(!confirm("Process all pending points?")) return;
                 const { db, doc, writeBatch, increment, appId } = window.FirebaseDB;
                 const batch = writeBatch(db);
                 const tally = { centaurs: 0, pegasus: 0, titans: 0, unicorns: 0 };
                 pending.forEach(sub => {
-                    (sub.ranks.first||[]).forEach(id => tally[id] += 10);
-                    (sub.ranks.second||[]).forEach(id => tally[id] += 7);
-                    (sub.ranks.third||[]).forEach(id => tally[id] += 4);
-                    (sub.ranks.fourth||[]).forEach(id => tally[id] += 3);
+                    (sub.ranks.first||[]).forEach(id => tally[id] += 10); (sub.ranks.second||[]).forEach(id => tally[id] += 7);
+                    (sub.ranks.third||[]).forEach(id => tally[id] += 4); (sub.ranks.fourth||[]).forEach(id => tally[id] += 3);
                     batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'rankings', sub.id), {processed: true});
                 });
                 HOUSES.forEach(h => { if(tally[h.id] > 0) batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', h.id), {points: increment(tally[h.id])}, {merge:true}); });
-                await batch.commit();
-                alert("Points Tallied!");
+                await batch.commit(); alert("Points Tallied!");
             };
-
             return (
-                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl border-2 border-slate-100 shadow-xl animate-in fade-in">
+                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl border-2 border-slate-100 shadow-xl">
                     <h2 className="text-3xl font-display font-black text-scis-navy uppercase mb-6">Tally Pending ({pending.length})</h2>
                     <div className="space-y-4 mb-6">
                         {pending.map(p => (
                             <div key={p.id} className="p-4 bg-slate-50 border rounded-xl flex justify-between items-center">
                                 <div><span className="font-bold text-scis-navy">{p.teacherEmail}</span> <span className="text-xs bg-white px-2 py-1 rounded shadow-sm ml-2">{p.month}</span></div>
-                                <div className="text-xs flex gap-2">
-                                    <span className="text-yellow-600 font-black">1st: {(p.ranks.first||[]).join(', ')}</span>
-                                </div>
+                                <div className="text-xs text-yellow-600 font-black">1st: {(p.ranks.first||[]).join(', ')}</div>
                             </div>
                         ))}
                     </div>
-                    <button onClick={processPoints} disabled={pending.length===0} className="w-full bg-scis-navy text-scis-gold py-4 rounded-xl font-black uppercase text-lg disabled:opacity-50">Execute Point Transfer</button>
+                    <button onClick={processPoints} disabled={pending.length===0} className="w-full bg-scis-navy hover:bg-[#122859] text-scis-gold py-4 rounded-xl font-black uppercase text-lg disabled:opacity-50 btn-press">Execute Point Transfer</button>
                 </div>
             );
         }
 
         // ==========================================
-        // MODULE 2: AR / DR INCIDENT PORTAL
+        // MODULE 2: AR / DR PORTAL
         // ==========================================
         function IncidentModule({ setGlobalView, isCoordinator, isAdmin, userEmail, students, roles }) {
             const [localView, setLocalView] = useState('form');
+            const [ars, setArs] = useState([]);
+            
+            useEffect(() => {
+                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections')), snap => {
+                    const list = []; snap.forEach(doc => list.push({id: doc.id, ...doc.data()}));
+                    setArs(list.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)));
+                });
+                return () => unsub();
+            }, []);
 
             return (
-                <div className="min-h-screen bg-slate-50">
-                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-40 shadow-md flex justify-between items-center">
+                <div className="min-h-screen bg-slate-50 animate-in fade-in">
+                    <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-40 shadow-md flex justify-between items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <BackToHubBtn setGlobalView={setGlobalView} />
-                            <div className="hidden sm:block text-scis-gold text-xl font-display font-black uppercase ml-2">⚠️ AR Portal</div>
+                            <button onClick={() => setGlobalView('hub')} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">🏠 Back</button>
+                            <div className="hidden sm:block text-scis-gold text-xl font-display font-black uppercase ml-2">⚠️ Incidents</div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap justify-end">
                             <button onClick={() => setLocalView('form')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'form' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Assign</button>
                             {isCoordinator && <button onClick={() => setLocalView('dashboard')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'dashboard' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Dashboard</button>}
-                            {isAdmin && <button onClick={() => setLocalView('admin')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'admin' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Settings</button>}
+                            {isCoordinator && <button onClick={() => setLocalView('analytics')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'analytics' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Analytics</button>}
+                            {isAdmin && <button onClick={() => setLocalView('admin')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${localView === 'admin' ? 'bg-scis-gold text-scis-navy' : 'text-white hover:bg-white/20'}`}>Admin</button>}
                         </div>
                     </nav>
                     <main className="max-w-6xl mx-auto p-4 md:p-6 mt-4">
-                        {localView === 'form' && <ARForm userEmail={userEmail} students={students} isCoordinator={isCoordinator} />}
-                        {localView === 'dashboard' && <CoordinatorDashboard />}
-                        {localView === 'admin' && <AdminSettings students={students} roles={roles} />}
+                        {localView === 'form' && <IncidentForm userEmail={userEmail} students={students} isCoordinator={isCoordinator} />}
+                        {localView === 'dashboard' && <IncidentDashboard ars={ars} />}
+                        {localView === 'analytics' && <IncidentAnalytics ars={ars} />}
+                        {localView === 'admin' && <IncidentAdmin students={students} roles={roles} />}
                     </main>
                 </div>
             );
         }
 
-        function ARForm({ userEmail, students, isCoordinator }) {
+        function IncidentForm({ userEmail, students, isCoordinator }) {
             const GRADES = useMemo(() => [...new Set(students.map(s => s.grade))].sort(), [students]);
             const [recordType, setRecordType] = useState('AR'); 
+            const [searchMode, setSearchMode] = useState('search');
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedGrade, setSelectedGrade] = useState('');
             const [selectedStudent, setSelectedStudent] = useState(null);
             const [reason, setReason] = useState('');
+            const [customReason, setCustomReason] = useState('');
             const [subject, setSubject] = useState('');
-            const [gradeFilter, setGradeFilter] = useState('');
             const [showPreview, setShowPreview] = useState(false);
 
-            const filteredStudents = useMemo(() => gradeFilter ? students.filter(s => s.grade === gradeFilter) : [], [gradeFilter, students]);
+            const filteredStudents = useMemo(() => {
+                if (searchMode === 'search') return searchTerm.length > 1 ? students.filter(s => s.displayName.includes(searchTerm.toUpperCase())) : [];
+                return selectedGrade ? students.filter(s => s.grade === selectedGrade) : [];
+            }, [searchTerm, searchMode, selectedGrade, students]);
 
             const submit = async () => {
                 const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections'), {
                     studentId: selectedStudent.id, studentName: selectedStudent.displayName, grade: selectedStudent.grade, house: selectedStudent.house,
-                    type: recordType, pointDeduction: recordType === 'DR' ? 30 : 3, reason, subject, teacherEmail: userEmail, timestamp: Timestamp.now(), status: 'pending'
+                    type: recordType, pointDeduction: recordType === 'DR' ? 30 : 3, reason, customReason: reason==='Other - Otro' ? customReason : null, subject, teacherEmail: userEmail, timestamp: Timestamp.now(), status: 'pending'
                 });
-                alert("Incident Submitted!");
-                setShowPreview(false); setSelectedStudent(null); setReason(''); setSubject('');
+                alert("Incident Submitted successfully.");
+                setShowPreview(false); setSelectedStudent(null); setReason(''); setCustomReason(''); setSubject(''); setSearchTerm('');
             };
 
+            const isFormComplete = selectedStudent && reason && (reason !== 'Other - Otro' || customReason) && subject;
+
             return (
-                <div className="max-w-2xl mx-auto animate-in fade-in space-y-6 pb-20">
+                <div className="max-w-2xl mx-auto animate-in fade-in space-y-6 pb-24">
                     <h2 className="text-3xl font-display font-black text-scis-navy uppercase">Assign Incident</h2>
                     
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                         <h3 className="font-bold text-lg text-scis-navy mb-4">1. Select Student</h3>
                         {!selectedStudent ? (
                             <div>
-                                <select value={gradeFilter} onChange={e=>setGradeFilter(e.target.value)} className="w-full p-4 mb-2 bg-slate-50 border rounded-xl font-bold">
-                                    <option value="">Filter by Grade...</option>
-                                    {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                                </select>
-                                {gradeFilter && (
-                                    <div className="max-h-48 overflow-y-auto border rounded-xl bg-slate-50">
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                                    <button onClick={() => setSearchMode('search')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'search' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Name</button>
+                                    <button onClick={() => setSearchMode('dropdown')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${searchMode === 'dropdown' ? 'bg-white text-scis-navy shadow-sm' : 'text-slate-500'}`}>Grade</button>
+                                </div>
+                                {searchMode === 'search' ? (
+                                    <input type="text" placeholder="Type name (e.g. Perez)..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium" />
+                                ) : (
+                                    <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium">
+                                        <option value="">-- Select Grade --</option>
+                                        {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                )}
+                                {filteredStudents.length > 0 && (
+                                    <div className="mt-2 max-h-48 overflow-y-auto border rounded-xl bg-white shadow-lg absolute z-10 w-[calc(100%-4rem)] max-w-2xl">
                                         {filteredStudents.map(s => (
-                                            <div key={s.id} onClick={()=>setSelectedStudent(s)} className="p-3 border-b hover:bg-slate-200 cursor-pointer font-bold text-sm flex justify-between">
+                                            <div key={s.id} onClick={()=>setSelectedStudent(s)} className="p-3 border-b hover:bg-slate-100 cursor-pointer font-bold text-sm flex justify-between">
                                                 <span>{s.displayName}</span> <HouseBadge houseId={s.house} />
                                             </div>
                                         ))}
@@ -540,41 +506,50 @@
                             </div>
                         ) : (
                             <div className="bg-blue-50 p-4 rounded-xl border flex justify-between items-center">
-                                <span className="font-black text-scis-navy">{selectedStudent.displayName}</span>
-                                <button onClick={()=>setSelectedStudent(null)} className="text-red-500 font-bold text-xs bg-white px-2 py-1 rounded">Change</button>
+                                <div><p className="font-black text-scis-navy">{selectedStudent.displayName}</p><div className="text-xs flex gap-2 mt-1"><span className="bg-white px-2 rounded border font-bold">{selectedStudent.grade}</span> <HouseBadge houseId={selectedStudent.house} /></div></div>
+                                <button onClick={()=>setSelectedStudent(null)} className="text-slate-400 hover:text-red-500 text-2xl font-black">×</button>
                             </div>
                         )}
                     </div>
 
-                    <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 transition-opacity ${selectedStudent ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                    <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 transition-opacity ${selectedStudent ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                         <h3 className="font-bold text-lg text-scis-navy mb-4">2. Details</h3>
                         {isCoordinator && (
-                            <select value={recordType} onChange={e=>setRecordType(e.target.value)} className="w-full p-3 mb-4 bg-slate-50 border rounded-xl font-black text-red-700">
-                                <option value="AR">AR (-3 Points)</option>
-                                <option value="DR">DR (-30 Points)</option>
-                            </select>
+                            <div className="flex gap-4 mb-6">
+                                <label className={`flex-1 p-3 rounded-xl border-2 cursor-pointer ${recordType==='AR'?'border-scis-navy bg-blue-50':'border-slate-200'}`}><input type="radio" className="sr-only" checked={recordType==='AR'} onChange={()=>setRecordType('AR')}/><span className="font-bold text-sm text-scis-navy">AR (-3 pts)</span></label>
+                                <label className={`flex-1 p-3 rounded-xl border-2 cursor-pointer ${recordType==='DR'?'border-red-600 bg-red-50':'border-slate-200'}`}><input type="radio" className="sr-only" checked={recordType==='DR'} onChange={()=>setRecordType('DR')}/><span className="font-bold text-sm text-red-700">DR (-30 pts)</span></label>
+                            </div>
                         )}
-                        <select value={reason} onChange={e=>setReason(e.target.value)} className="w-full p-3 mb-4 bg-slate-50 border rounded-xl font-medium text-sm">
-                            <option value="">Select Reason...</option>
+                        <select value={reason} onChange={e=>setReason(e.target.value)} className="w-full p-4 mb-4 bg-slate-50 border rounded-xl font-medium text-sm">
+                            <option value="">-- Select Reason --</option>
                             {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl font-medium text-sm">
-                            <option value="">Select Subject...</option>
+                        {reason === 'Other - Otro' && <textarea placeholder="Please specify..." value={customReason} onChange={e=>setCustomReason(e.target.value)} className="w-full p-4 mb-4 bg-slate-50 border rounded-xl font-medium text-sm min-h-[80px]"></textarea>}
+                        <select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-medium text-sm">
+                            <option value="">-- Select Subject --</option>
                             {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
 
-                    <button onClick={()=>setShowPreview(true)} disabled={!selectedStudent || !reason || !subject} className="w-full bg-scis-navy text-scis-gold py-4 rounded-2xl font-black uppercase text-xl disabled:opacity-50 btn-press">Review & Submit</button>
+                    <div className={`fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t z-20 transition-transform ${isFormComplete && !showPreview ? 'translate-y-0' : 'translate-y-full'}`}>
+                        <button onClick={()=>setShowPreview(true)} className="w-full max-w-2xl mx-auto block bg-scis-navy text-scis-gold py-4 rounded-2xl font-black text-xl uppercase btn-press shadow-xl">Review {recordType}</button>
+                    </div>
 
                     {showPreview && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                            <div className="bg-white rounded-3xl p-6 max-w-sm w-full">
-                                <h3 className="text-2xl font-black text-center mb-4">Confirm {recordType}</h3>
-                                <p className="font-bold text-scis-navy mb-2">{selectedStudent?.displayName}</p>
-                                <p className="text-sm text-slate-600 mb-6">{reason}</p>
-                                <div className="flex gap-4">
-                                    <button onClick={()=>setShowPreview(false)} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                                    <button onClick={submit} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl">Confirm</button>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scis-navy/40 backdrop-blur-sm p-4">
+                            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-slide-up overflow-hidden">
+                                <div className={`p-6 text-center border-b ${recordType==='DR'?'bg-red-100 text-red-900':'bg-amber-100 text-amber-900'}`}>
+                                    <span className="text-4xl block mb-2">{recordType==='DR'?'🚨':'⚠️'}</span>
+                                    <h3 className="font-black text-2xl uppercase">Confirm {recordType}</h3>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase">Student</p><p className="font-black text-scis-navy">{selectedStudent?.displayName}</p></div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border"><p className="text-[10px] font-bold text-slate-400 uppercase">Reason</p><p className="font-medium text-sm">{reason==='Other - Otro'?customReason:reason}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase">Subject</p><p className="font-bold text-scis-navy">{subject}</p></div>
+                                </div>
+                                <div className="p-4 grid grid-cols-2 gap-3 bg-slate-50 border-t">
+                                    <button onClick={()=>setShowPreview(false)} className="py-3 rounded-xl font-bold bg-white border hover:bg-slate-100">Cancel</button>
+                                    <button onClick={submit} className="py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 btn-press">Submit</button>
                                 </div>
                             </div>
                         </div>
@@ -583,17 +558,8 @@
             );
         }
 
-        function CoordinatorDashboard() {
-            const [ars, setArs] = useState([]);
-            useEffect(() => {
-                const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
-                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'active_reflections')), snap => {
-                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()}));
-                    setArs(list.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)));
-                });
-                return () => unsub();
-            }, []);
-
+        function IncidentDashboard({ ars }) {
+            const pending = ars.filter(a => a.status === 'pending' || !a.status);
             const handleAccept = async (ar) => {
                 if(!confirm(`Approve ${ar.type} and deduct points?`)) return;
                 const { db, doc, setDoc, updateDoc, increment, appId } = window.FirebaseDB;
@@ -601,23 +567,39 @@
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'houseTotals', ar.house), {points: increment(-deduction)}, {merge:true});
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_reflections', ar.id), {status: 'approved'});
             };
+            const handleDelete = async (id) => {
+                if(!confirm("Permanently delete record?")) return;
+                const { db, doc, deleteDoc, appId } = window.FirebaseDB;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_reflections', id));
+            };
 
             return (
-                <div className="bg-white rounded-3xl shadow-sm border p-6">
-                    <h2 className="text-2xl font-display font-black text-scis-navy mb-4">Incident Ledger</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm border-collapse">
-                            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                                <tr><th className="p-3">Student</th><th className="p-3">Type</th><th className="p-3">Reason</th><th className="p-3">Action</th></tr>
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-display font-black text-scis-navy uppercase">Ledger</h2>
+                        <span className="bg-scis-gold text-scis-navy px-4 py-1.5 rounded-full text-xs font-black border border-yellow-400">{pending.length} Pending</span>
+                    </div>
+                    <div className="overflow-x-auto max-h-[600px]">
+                        <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+                            <thead className="bg-slate-50 sticky top-0">
+                                <tr><th className="p-4 text-xs font-black text-slate-500 uppercase">Date</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Student</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Type / Reason</th><th className="p-4 text-xs font-black text-slate-500 uppercase">Status / Action</th></tr>
                             </thead>
                             <tbody>
                                 {ars.map(ar => (
-                                    <tr key={ar.id} className="border-b hover:bg-slate-50">
-                                        <td className="p-3 font-bold text-scis-navy">{ar.studentName}</td>
-                                        <td className="p-3"><span className="text-[10px] font-black bg-slate-200 px-2 py-1 rounded">{ar.type}</span></td>
-                                        <td className="p-3 text-xs truncate max-w-[200px]">{ar.reason}</td>
-                                        <td className="p-3">
-                                            {ar.status === 'pending' ? <button onClick={()=>handleAccept(ar)} className="bg-green-500 text-white px-3 py-1 rounded font-bold text-xs hover:bg-green-600">Accept</button> : <span className="text-green-500 text-xs font-bold">Approved</span>}
+                                    <tr key={ar.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                        <td className="p-4 font-medium text-slate-500 text-xs whitespace-nowrap">{formatDateTime(ar.timestamp)}</td>
+                                        <td className="p-4"><div className="font-bold text-scis-navy">{ar.studentName}</div><div className="text-[10px] mt-1 font-bold text-slate-500">{ar.grade}</div></td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase mr-2 ${ar.type==='DR'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}`}>{ar.type}</span>
+                                            <span className="text-xs text-slate-700">{ar.reason==='Other - Otro'?ar.customReason:ar.reason.split('-')[0]}</span>
+                                        </td>
+                                        <td className="p-4 flex gap-2">
+                                            {ar.status === 'approved' ? (
+                                                <span className="text-green-600 bg-green-50 px-2 py-1 rounded-md text-[10px] font-bold uppercase">✓ Approved</span>
+                                            ) : (
+                                                <button onClick={()=>handleAccept(ar)} className="text-green-700 bg-green-100 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Accept</button>
+                                            )}
+                                            <button onClick={()=>handleDelete(ar.id)} className="text-red-500 hover:text-white bg-red-50 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">Del</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -628,20 +610,91 @@
             );
         }
 
-        function AdminSettings({ students, roles }) {
+        function IncidentAnalytics({ ars }) {
+            const [filterGrade, setFilterGrade] = useState('');
+            const analyzedData = useMemo(() => {
+                let filtered = filterGrade ? ars.filter(a=>a.grade===filterGrade) : ars;
+                const students = {}; const reasons = {}; const subjects = {};
+                filtered.forEach(ar => {
+                    if (!students[ar.studentId]) students[ar.studentId] = { name: ar.studentName, grade: ar.grade, ars: 0, drs: 0, total: 0 };
+                    if (ar.type === 'AR') students[ar.studentId].ars++; if (ar.type === 'DR') students[ar.studentId].drs++;
+                    students[ar.studentId].total++;
+                    const r = ar.reason === 'Other - Otro' ? 'Other' : (ar.reason || '').split(' - ')[0];
+                    reasons[r] = (reasons[r] || 0) + 1;
+                    if(ar.subject) subjects[ar.subject] = (subjects[ar.subject] || 0) + 1;
+                });
+                return {
+                    offenders: Object.values(students).sort((a,b)=>b.total-a.total).slice(0,10),
+                    topReasons: Object.entries(reasons).map(([name, count])=>({name, count})).sort((a,b)=>b.count-a.count).slice(0,5),
+                    topSubjects: Object.entries(subjects).map(([name, count])=>({name, count})).sort((a,b)=>b.count-a.count).slice(0,5)
+                };
+            }, [ars, filterGrade]);
+
+            const grades = [...new Set(ars.map(a => a.grade).filter(Boolean))].sort();
+
             return (
-                <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border">
-                        <h2 className="text-2xl font-display font-black text-scis-navy mb-4">Roles</h2>
-                        <p className="text-sm font-bold">Admins: {roles.admins.join(', ')}</p>
-                        <p className="text-sm font-bold mt-2">Coordinators: {roles.coordinators.join(', ')}</p>
-                        <p className="text-xs text-slate-400 mt-2 italic">Role management UI is active in backend data.</p>
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
+                        <select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} className="p-3 bg-slate-50 border rounded-xl text-sm font-bold text-scis-navy outline-none">
+                            <option value="">All Grades (Analytics)</option>
+                            {grades.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
                     </div>
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border">
-                        <h2 className="text-2xl font-display font-black text-scis-navy mb-4">Students Database ({students.length})</h2>
-                        <div className="max-h-64 overflow-y-auto bg-slate-50 rounded-xl border p-2">
-                            {students.map(s => <div key={s.id} className="p-2 border-b text-sm font-bold">{s.displayName} - {s.grade}</div>)}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border p-6">
+                            <h3 className="font-display font-black text-xl text-scis-navy mb-4">Top Offenders</h3>
+                            <table className="w-full text-left border-collapse text-sm">
+                                <thead><tr className="border-b"><th className="p-3 text-xs text-slate-500 uppercase">Student</th><th className="p-3 text-xs text-center text-slate-500 uppercase">ARs</th><th className="p-3 text-xs text-center text-slate-500 uppercase">DRs</th></tr></thead>
+                                <tbody>
+                                    {analyzedData.offenders.map((s, i) => (
+                                        <tr key={i} className="border-b hover:bg-slate-50">
+                                            <td className="p-3"><span className="font-bold text-scis-navy">{s.name}</span> <span className="text-[10px] bg-slate-100 px-1.5 rounded">{s.grade}</span> {s.ars > 3 && <span className="text-[10px] text-red-600 bg-red-100 px-2 rounded-full font-black ml-2">⚠️ High</span>}</td>
+                                            <td className="p-3 text-center font-bold text-slate-700">{s.ars}</td>
+                                            <td className="p-3 text-center font-bold text-red-600">{s.drs}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border">
+                                <h3 className="font-display font-black text-lg text-scis-navy mb-4">Top Reasons</h3>
+                                <ul className="space-y-3">
+                                    {analyzedData.topReasons.map((r, i) => <li key={i} className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm"><span className="truncate text-slate-600 mr-2">{r.name}</span><span className="font-black text-scis-navy">{r.count}</span></li>)}
+                                </ul>
+                            </div>
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border">
+                                <h3 className="font-display font-black text-lg text-scis-navy mb-4">Problem Subjects</h3>
+                                <ul className="space-y-3">
+                                    {analyzedData.topSubjects.map((s, i) => <li key={i} className="flex justify-between p-3 bg-slate-50 rounded-xl text-sm"><span className="truncate text-slate-600 mr-2">{s.name}</span><span className="font-black text-scis-navy">{s.count}</span></li>)}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function IncidentAdmin({ students, roles }) {
+            const [newEmail, setNewEmail] = useState('');
+            const addCoord = async (e) => {
+                e.preventDefault(); if(!newEmail.includes('@')) return;
+                const { db, doc, updateDoc, appId } = window.FirebaseDB;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), { coordinators: [...roles.coordinators, newEmail.toLowerCase().trim()] });
+                setNewEmail(''); alert("Added");
+            };
+            const removeCoord = async (email) => {
+                const { db, doc, updateDoc, appId } = window.FirebaseDB;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'roles'), { coordinators: roles.coordinators.filter(e => e !== email) });
+            };
+            return (
+                <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border">
+                        <h3 className="font-display font-black text-xl text-scis-navy mb-4">Coordinators</h3>
+                        <form onSubmit={addCoord} className="flex gap-2 mb-6"><input type="email" placeholder="Email..." value={newEmail} onChange={e=>setNewEmail(e.target.value)} required className="flex-1 p-3 bg-slate-50 border rounded-xl text-sm" /><button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold btn-press">Add</button></form>
+                        <ul className="space-y-2">
+                            {roles.coordinators.map(email => <li key={email} className="p-3 bg-slate-50 border rounded-xl text-sm font-medium flex justify-between">{email}<button onClick={()=>removeCoord(email)} className="text-red-500 font-bold text-xs hover:bg-red-50 px-2 rounded">Remove</button></li>)}
+                        </ul>
                     </div>
                 </div>
             );
@@ -650,144 +703,250 @@
         // ==========================================
         // MODULE 3: ATTENDANCE KIOSK
         // ==========================================
-        function AttendanceModule({ setGlobalView, userEmail, students }) {
+        function AttendanceModule({ setGlobalView, userEmail, students, grades }) {
             const [localView, setLocalView] = useState('take');
 
             return (
-                <div className="min-h-screen bg-[#0C1D40] relative z-0">
+                <div className="min-h-screen bg-[#0C1D40] relative z-0 animate-in fade-in">
                     <div className="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-animate pointer-events-none"></div>
-                    
-                    <nav className="glass-panel border-b border-white/20 px-4 md:px-8 py-3 sticky top-0 z-40 shadow-lg flex justify-between items-center">
+                    <nav className="glass-panel border-b border-white/20 px-4 md:px-8 py-3 sticky top-0 z-40 shadow-lg flex justify-between items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <BackToHubBtn setGlobalView={setGlobalView} />
+                            <button onClick={() => setGlobalView('hub')} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">🏠 Back</button>
                             <div className="hidden sm:block text-white text-xl font-display font-black uppercase ml-2">📝 Kiosk</div>
                         </div>
-                        <div className="flex bg-white/30 p-1.5 rounded-2xl shadow-inner border border-white/50">
-                            <button onClick={() => setLocalView('take')} className={`px-5 py-2 text-xs font-black uppercase rounded-xl transition-all ${localView === 'take' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-white hover:bg-white/40'}`}>Take</button>
-                            <button onClick={() => setLocalView('history')} className={`px-5 py-2 text-xs font-black uppercase rounded-xl transition-all ${localView === 'history' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-white hover:bg-white/40'}`}>Log</button>
+                        <div className="flex bg-white/30 p-1 rounded-xl shadow-inner border border-white/50">
+                            <button onClick={() => setLocalView('take')} className={`px-4 py-1.5 text-xs font-black uppercase rounded-lg transition-all ${localView === 'take' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-white hover:bg-white/40'}`}>Take</button>
+                            <button onClick={() => setLocalView('history')} className={`px-4 py-1.5 text-xs font-black uppercase rounded-lg transition-all ${localView === 'history' ? 'bg-scis-navy text-scis-gold shadow-md' : 'text-white hover:bg-white/40'}`}>Log</button>
                         </div>
                     </nav>
-
                     <main className="max-w-7xl mx-auto p-4 sm:pt-8 pb-32 relative z-10">
-                        {localView === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <div className="text-white text-center p-10 font-bold text-xl glass-panel rounded-3xl">Attendance Logs View Active</div>}
+                        {localView === 'take' && <AttendanceTaker userEmail={userEmail} students={students} grades={grades} />}
+                        {localView === 'history' && <AttendanceHistory userEmail={userEmail} />}
                     </main>
                 </div>
             );
         }
 
-        function AttendanceTaker({ userEmail, students }) {
+        function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
+            const radius = 80;
+            return (
+                <div className="relative flex justify-center items-center h-16 w-16 z-20">
+                    <div className={`text-5xl drop-shadow-lg cursor-pointer transition-transform duration-300 ${isOpen ? 'scale-125' : 'hover:scale-110'}`} onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onToggle();}}>{currentMood || '😐'}</div>
+                    {isOpen && (
+                        <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
+                            <div className="fixed inset-0 z-40" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onToggle();}}></div>
+                            {MOOD_OPTIONS.map((emoji, i) => {
+                                const angle = (i * (360 / MOOD_OPTIONS.length) - 90) * (Math.PI / 180);
+                                const x = Math.cos(angle) * radius; const y = Math.sin(angle) * radius;
+                                return (
+                                    <div key={emoji} className="absolute z-50 pointer-events-none" style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}>
+                                        <div onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();onSelect(emoji);}} className="pointer-events-auto flex items-center justify-center w-14 h-14 bg-white/95 backdrop-blur-md rounded-full shadow-2xl text-3xl cursor-pointer hover:scale-125 transition-transform animate-pop border border-slate-200" style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'both' }}>{emoji}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function AttendanceTaker({ userEmail, students, grades }) {
             const [selectedClass, setSelectedClass] = useState('');
             const [attendance, setAttendance] = useState({});
             const [moods, setMoods] = useState({});
+            const [openMoodMenuId, setOpenMoodMenuId] = useState(null);
             const [animatingId, setAnimatingId] = useState(null);
 
-            const GRADES = useMemo(() => [...new Set(students.map(s => s.grade).filter(Boolean))].sort(), [students]);
             const currentStudents = useMemo(() => selectedClass ? students.filter(s => s.grade === selectedClass) : [], [selectedClass, students]);
-
-            const markAllPresent = () => { const newAtt = {}; currentStudents.forEach(s => newAtt[s.id] = 'P'); setAttendance(newAtt); };
 
             const cycleStudent = (id) => {
                 setAnimatingId(id); setTimeout(() => setAnimatingId(null), 300);
                 setAttendance(prev => {
-                    const curr = prev[id];
-                    if (curr === 'P') return { ...prev, [id]: 'L' };
-                    if (curr === 'L') return { ...prev, [id]: 'A' };
-                    if (curr === 'A') { const n = {...prev}; delete n[id]; return n; }
+                    const c = prev[id];
+                    if (c === 'P') return { ...prev, [id]: 'L' }; if (c === 'L') return { ...prev, [id]: 'A' };
+                    if (c === 'A') { const n = {...prev}; delete n[id]; return n; }
                     return { ...prev, [id]: 'P' };
                 });
             };
 
             const submit = async () => {
-                if (Object.keys(attendance).length !== currentStudents.length) return alert("Mark all students first!");
+                if (Object.keys(attendance).length !== currentStudents.length) return alert("Mark all students!");
                 const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
                 const records = currentStudents.map(s => ({ studentId: s.id, studentName: s.displayName, status: attendance[s.id], mood: moods[s.id] || '😐' }));
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), {
                     class: selectedClass, teacherEmail: userEmail, timestamp: Timestamp.now(), records,
                     presentCount: Object.values(attendance).filter(v=>v==='P').length, lateCount: Object.values(attendance).filter(v=>v==='L').length, absentCount: Object.values(attendance).filter(v=>v==='A').length
                 });
-                alert("Attendance Saved!"); setSelectedClass(''); setAttendance({});
+                alert("Attendance Locked!"); setSelectedClass(''); setAttendance({}); setMoods({});
             };
 
             const missingCount = currentStudents.length - Object.keys(attendance).length;
 
             return (
                 <div className="space-y-6">
-                    <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
-                        <div>
-                            <h2 className="text-3xl font-display font-black text-scis-navy uppercase">Class Roster</h2>
-                            <p className="text-slate-600 font-bold text-xs uppercase mt-1">Select class to begin</p>
-                        </div>
+                    <div className="glass-panel rounded-3xl p-6 shadow-xl flex flex-col md:flex-row justify-between gap-6 relative z-20">
+                        <div><h2 className="text-3xl font-display font-black text-scis-navy uppercase drop-shadow-sm">Roster</h2><p className="text-slate-600 font-bold uppercase text-xs mt-1">Select mood & mark presence</p></div>
                         <div className="flex gap-4">
-                            <select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)} className="p-4 bg-white/90 rounded-2xl font-black text-scis-navy shadow-lg outline-none cursor-pointer border-2 border-white/50">
+                            <select value={selectedClass} onChange={e=>{setSelectedClass(e.target.value); setAttendance({}); setMoods({});}} className="p-4 bg-white/90 border-2 border-white/50 rounded-2xl focus:ring-4 focus:ring-scis-gold font-black text-scis-navy text-xl shadow-lg cursor-pointer outline-none">
                                 <option value="">-- Class --</option>
-                                {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                                {grades.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
-                            {selectedClass && <button onClick={markAllPresent} className="bg-scis-navy text-scis-gold px-6 rounded-2xl font-black uppercase shadow-xl btn-press">Mark All Present</button>}
+                            {selectedClass && <button onClick={()=>{const n={}; currentStudents.forEach(s=>n[s.id]='P'); setAttendance(n);}} className="bg-scis-navy text-scis-gold px-6 rounded-2xl font-black uppercase shadow-xl btn-press">All Present</button>}
                         </div>
                     </div>
-
                     {selectedClass && currentStudents.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 animate-slide-up pb-24">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pb-24">
                             {currentStudents.map(s => {
-                                const st = attendance[s.id];
-                                const isAnim = animatingId === s.id;
-                                let style = "bg-white/80 text-scis-navy border-b-slate-300";
-                                let lbl = "Tap"; let icn = "";
-                                if(st==='P'){ style = "bg-green-500 text-white border-b-green-700 shadow-green-500/50"; lbl="PRESENT"; icn="✅"; }
-                                if(st==='L'){ style = "bg-amber-500 text-white border-b-amber-700 shadow-amber-500/50"; lbl="LATE"; icn="⏱️"; }
-                                if(st==='A'){ style = "bg-red-500 text-white border-b-red-700 shadow-red-500/50"; lbl="ABSENT"; icn="❌"; }
-
+                                const st = attendance[s.id]; const isAnim = animatingId === s.id; const isMenu = openMoodMenuId === s.id;
+                                let style = "bg-white/80 text-scis-navy hover:bg-white border-b-slate-300"; let lbl = "Tap"; let icn = "";
+                                if(st==='P'){ style = "bg-gradient-to-b from-green-400 to-green-500 border-b-green-700 text-white shadow-green-500/50"; lbl="PRESENT"; icn="✅"; }
+                                else if(st==='L'){ style = "bg-gradient-to-b from-amber-400 to-amber-500 border-b-amber-700 text-white shadow-amber-500/50"; lbl="LATE"; icn="⏱️"; }
+                                else if(st==='A'){ style = "bg-gradient-to-b from-red-400 to-red-500 border-b-red-700 text-white shadow-red-500/50"; lbl="ABSENT"; icn="❌"; }
                                 return (
-                                    <div key={s.id} onClick={()=>cycleStudent(s.id)} className={`relative flex flex-col items-center justify-center p-4 rounded-3xl border-2 border-b-[6px] shadow-xl backdrop-blur-md cursor-pointer select-none transition-colors min-h-[130px] ${style} ${isAnim ? 'animate-press3d' : ''}`}>
-                                        <div className="text-4xl mb-2 hover:scale-125 transition-transform" onClick={e=>{e.stopPropagation(); setMoods(p=>({...p, [s.id]: MOOD_OPTIONS[Math.floor(Math.random()*MOOD_OPTIONS.length)]}));}}>{moods[s.id] || '😐'}</div>
-                                        <span className="font-black text-xs text-center leading-tight z-10 drop-shadow-sm">{s.displayName}</span>
-                                        <div className="mt-auto pt-2"><span className="text-[9px] font-black uppercase bg-black/20 px-2 py-1 rounded-full">{icn} {lbl}</span></div>
+                                    <div key={s.id} onClick={()=>cycleStudent(s.id)} className={`relative flex flex-col items-center justify-center p-3 rounded-3xl border-2 border-b-[6px] shadow-xl backdrop-blur-md transition-all min-h-[130px] cursor-pointer select-none ${style} ${isAnim?'animate-press3d':''} ${isMenu?'z-50':'z-10'}`}>
+                                        <RadialMoodPicker currentMood={moods[s.id]} isOpen={isMenu} onToggle={()=>setOpenMoodMenuId(isMenu?null:s.id)} onSelect={(e)=>{setMoods(p=>({...p,[s.id]:e}));setOpenMoodMenuId(null);}} />
+                                        <span className="font-black text-xs text-center z-10 drop-shadow-sm mt-3 truncate w-full px-1">{s.displayName}</span>
+                                        <div className="mt-auto pt-2 z-10"><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-inner ${st?'bg-black/20':'bg-slate-200 text-slate-500'}`}>{icn} {lbl}</span></div>
                                     </div>
                                 );
                             })}
                         </div>
                     )}
-                    
                     {selectedClass && (
-                        <div className="fixed bottom-0 left-0 right-0 p-6 bg-scis-navy/90 backdrop-blur-xl border-t border-white/20 z-50 flex justify-between items-center">
-                            <span className={`font-bold ${missingCount===0?'text-green-400':'text-scis-gold'}`}>{missingCount===0 ? '✅ Ready to lock!' : `⚠️ ${missingCount} left`}</span>
-                            <button onClick={submit} disabled={missingCount>0} className={`px-10 py-4 rounded-2xl font-black uppercase text-xl shadow-2xl transition-all ${missingCount===0?'bg-scis-gold text-scis-navy btn-press':'bg-white/20 text-white/50'}`}>Lock</button>
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-scis-navy/90 backdrop-blur-xl border-t border-white/20 z-[60] flex justify-between items-center">
+                            <span className={`font-bold ${missingCount===0?'text-green-400':'text-scis-gold animate-pulse'}`}>{missingCount===0 ? '✅ Ready!' : `⚠️ ${missingCount} left`}</span>
+                            <button onClick={submit} disabled={missingCount>0} className={`px-10 py-4 rounded-2xl font-black uppercase shadow-2xl transition-all btn-press ${missingCount===0?'bg-scis-gold text-scis-navy':'bg-white/10 text-white/30 cursor-not-allowed'}`}>Lock</button>
                         </div>
                     )}
                 </div>
             );
         }
 
+        function AttendanceHistory({ userEmail }) {
+            const [logs, setLogs] = useState([]);
+            const [selectedClass, setSelectedClass] = useState('');
+            
+            useEffect(() => {
+                const { db, collection, query, where, onSnapshot, appId } = window.FirebaseDB;
+                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), where("teacherEmail", "==", userEmail)), snap => {
+                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()}));
+                    setLogs(list.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)));
+                });
+                return () => unsub();
+            }, [userEmail]);
+
+            const teacherClasses = useMemo(() => [...new Set(logs.map(l => l.class))].sort(), [logs]);
+            const filteredLogs = useMemo(() => selectedClass ? logs.filter(l => l.class === selectedClass) : logs, [logs, selectedClass]);
+
+            const getMatrix = () => {
+                const sorted = [...filteredLogs].sort((a,b)=>(a.timestamp?.seconds||0)-(b.timestamp?.seconds||0));
+                const map = {};
+                sorted.forEach((log, i) => {
+                    (log.records||[]).forEach(r => {
+                        if(!map[r.studentName]) map[r.studentName] = new Array(sorted.length).fill('-');
+                        map[r.studentName][i] = r.status || '-';
+                    });
+                });
+                return { sorted, students: Object.keys(map).sort(), map };
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
+                    <div className="glass-panel rounded-3xl p-6 shadow-2xl border-t border-white/60">
+                        <div className="flex justify-between items-center mb-8 border-b border-white/30 pb-6">
+                            <h2 className="text-3xl font-display font-black text-scis-navy uppercase">My Log</h2>
+                            <select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)} className="p-3 bg-white/90 border-2 border-white/50 rounded-xl font-bold text-scis-navy outline-none">
+                                <option value="">-- All Classes --</option>
+                                {teacherClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        
+                        {!selectedClass ? (
+                            <div className="overflow-x-auto bg-white/80 rounded-2xl shadow-inner border border-white">
+                                <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                                    <thead><tr className="bg-white/90 border-b-2"><th className="p-4 font-black text-slate-500 uppercase text-xs">Date</th><th className="p-4 font-black text-slate-500 uppercase text-xs">Class</th><th className="p-4 font-black text-center text-green-600 uppercase text-xs">P</th><th className="p-4 font-black text-center text-amber-600 uppercase text-xs">L</th><th className="p-4 font-black text-center text-red-600 uppercase text-xs">A</th></tr></thead>
+                                    <tbody>
+                                        {filteredLogs.map(l => (
+                                            <tr key={l.id} className="border-b border-white hover:bg-white">
+                                                <td className="p-4 font-bold text-slate-600 text-xs whitespace-nowrap">{formatDateTime(l.timestamp)}</td>
+                                                <td className="p-4 font-black text-lg text-scis-navy">{l.class}</td>
+                                                <td className="p-4 text-center font-black text-green-700 bg-green-50/50">{l.presentCount||0}</td>
+                                                <td className="p-4 text-center font-black text-amber-700 bg-amber-50/50">{l.lateCount||0}</td>
+                                                <td className="p-4 text-center font-black text-red-700 bg-red-50/50">{l.absentCount||0}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto bg-white/90 rounded-2xl shadow-xl max-h-[600px] relative">
+                                <table className="w-full text-left border-collapse text-sm">
+                                    <thead className="sticky top-0 bg-white shadow-sm z-20">
+                                        <tr>
+                                            <th className="p-4 sticky left-0 bg-white border-r text-xs font-black uppercase text-scis-navy">Student</th>
+                                            {getMatrix().sorted.map(log => <th key={log.id} className="p-4 text-center text-[10px] font-black uppercase text-slate-500 border-r min-w-[80px]">{log.timestamp ? new Date(log.timestamp.seconds*1000).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : ''}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {getMatrix().students.map(sName => (
+                                            <tr key={sName} className="hover:bg-slate-50">
+                                                <td className="p-4 sticky left-0 bg-white/90 border-r font-bold text-xs truncate">{sName}</td>
+                                                {getMatrix().map[sName].map((st, i) => (
+                                                    <td key={i} className="p-2 text-center border-r"><span className={`inline-block w-6 h-6 rounded flex items-center justify-center font-black text-xs ${st==='P'?'bg-green-100 text-green-700':st==='L'?'bg-amber-100 text-amber-700':st==='A'?'bg-red-100 text-red-700':'text-slate-300'}`}>{st}</span></td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         // ==========================================
-        // MODULE 4: CALENDAR MODULE
+        // MODULE 4: CALENDAR
         // ==========================================
         function CalendarModule({ setGlobalView, user, grades }) {
             const [tests, setTests] = useState([]);
+            const [selectedGrade, setSelectedGrade] = useState('');
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [selectedDayView, setSelectedDayView] = useState(null);
             const [formData, setFormData] = useState({ title: '', date: '', time: '', class: '', teacher: user?.email?.split('@')[0].toUpperCase() || '' });
 
             useEffect(() => {
                 const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
                 const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests')), snap => {
-                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()}));
-                    setTests(list.sort((a,b)=>new Date(a.date)-new Date(b.date)));
+                    const list = []; snap.forEach(d => list.push({id: d.id, ...d.data()})); setTests(list);
                 });
                 return () => unsub();
             }, []);
 
+            useEffect(() => { if (selectedGrade) setFormData(p => ({ ...p, class: selectedGrade })); }, [selectedGrade]);
+
             const submit = async (e) => {
-                e.preventDefault();
-                const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
+                e.preventDefault(); const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests'), { ...formData, teacherEmail: user.email, timestamp: Timestamp.now() });
-                setFormData({...formData, title: ''}); alert("Test Scheduled!");
+                setFormData({...formData, title: '', time: ''}); alert("Test Scheduled!");
             };
 
             const handleDelete = async (id) => {
-                const { db, doc, deleteDoc, appId } = window.FirebaseDB;
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests', id));
-            }
+                if(!confirm("Remove test?")) return;
+                const { db, doc, deleteDoc, appId } = window.FirebaseDB; await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'scheduled_tests', id));
+            };
+
+            const classTests = selectedGrade ? tests.filter(t => t.class === selectedGrade) : tests;
+            const getTestsForDay = (dayStr) => classTests.filter(t => t.date === dayStr).sort((a,b)=>a.time.localeCompare(b.time));
+            
+            const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDay = new Date(year, month, 1).getDay();
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            
+            const dayViewTests = selectedDayView ? tests.filter(t => t.date === selectedDayView && (!selectedGrade || t.class === selectedGrade)).sort((a,b)=>a.time.localeCompare(b.time)) : [];
 
             return (
-                <div className="min-h-screen bg-slate-50">
+                <div className="min-h-screen bg-slate-50 animate-in fade-in">
                     <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 md:px-8 py-3 sticky top-0 z-40 shadow-md flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <BackToHubBtn setGlobalView={setGlobalView} />
@@ -795,37 +954,73 @@
                         </div>
                     </nav>
 
-                    <main className="max-w-6xl mx-auto p-4 md:p-8 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
-                            <h2 className="text-2xl font-display font-black text-scis-navy uppercase mb-6">Upcoming Tests</h2>
-                            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-                                {tests.map(t => (
-                                    <div key={t.id} className="p-4 bg-slate-50 rounded-xl border flex justify-between items-center">
-                                        <div>
-                                            <div className="font-black text-scis-navy text-lg">{t.title}</div>
-                                            <div className="text-xs font-bold text-slate-500">{t.date} @ {t.time} | 👤 {t.teacher}</div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-2">
-                                            <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-black">{t.class}</span>
-                                            {user.email === t.teacherEmail && <button onClick={()=>handleDelete(t.id)} className="text-[10px] text-red-500 font-bold hover:underline">Delete</button>}
-                                        </div>
+                    <main className="max-w-7xl mx-auto px-4 py-8">
+                        <div className="flex justify-between items-end mb-8">
+                            <h2 className="text-3xl font-display font-black text-scis-navy uppercase">Testing Calendar</h2>
+                            <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="p-3 bg-white border-2 rounded-xl font-bold text-scis-navy outline-none">
+                                <option value="">-- All Grades --</option>
+                                {grades.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col">
+                                <div className="flex justify-between items-center mb-6">
+                                    <button onClick={()=>setCurrentDate(new Date(year, month-1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">&larr;</button>
+                                    <h3 className="font-display font-black text-xl text-scis-navy">{monthNames[month]} {year}</h3>
+                                    <button onClick={()=>setCurrentDate(new Date(year, month+1, 1))} className="p-2 bg-slate-100 rounded-lg text-slate-600 font-bold">&rarr;</button>
+                                </div>
+                                <div className="calendar-grid rounded-xl overflow-hidden shadow-inner">
+                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=><div key={d} className="bg-slate-50 p-2 text-center text-xs font-black text-slate-500 uppercase border-b">{d}</div>)}
+                                    {Array.from({length:firstDay}).map((_,i)=><div key={`e-${i}`} className="bg-slate-50/50 min-h-[100px]"></div>)}
+                                    {Array.from({length:daysInMonth}).map((_,i) => {
+                                        const dayStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+                                        const dTests = getTestsForDay(dayStr);
+                                        let bg = "bg-white"; if(selectedGrade){ bg = dTests.length===1?'bg-green-50':dTests.length===2?'bg-amber-50':dTests.length>=3?'bg-red-50':'bg-white'; }
+                                        return (
+                                            <div key={i} onClick={()=>{setFormData(p=>({...p,date:dayStr})); if(dTests.length>0) setSelectedDayView(dayStr);}} className={`${bg} min-h-[100px] p-2 flex flex-col cursor-pointer hover:brightness-95 border-b border-r`}>
+                                                <div className="flex justify-between font-bold text-sm text-slate-600 mb-1">{i+1} {dTests.length>0 && <span className="text-[10px] bg-white shadow-sm px-1.5 rounded">{dTests.length}</span>}</div>
+                                                <div className="flex flex-col gap-1 overflow-hidden no-scrollbar">
+                                                    {dTests.slice(0,3).map(t=><div key={t.id} className="text-[9px] bg-white border rounded p-1 leading-tight truncate"><span className="font-black text-scis-navy">{t.time}</span> {t.title}</div>)}
+                                                    {dTests.length>3 && <div className="text-[9px] text-slate-400 font-bold">+ {dTests.length-3} more</div>}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 h-fit sticky top-24">
+                                <h3 className="font-display font-black text-xl text-scis-navy mb-4">Add Test</h3>
+                                <form onSubmit={submit} className="space-y-4">
+                                    <select required value={formData.class} onChange={e=>setFormData({...formData, class: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold"><option value="">Class...</option>{grades.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                                    <input type="date" required value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
+                                    <div className="flex gap-2">
+                                        <input type="time" required value={formData.time} onChange={e=>setFormData({...formData, time: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium" />
+                                        <input type="text" required placeholder="Teacher" value={formData.teacher} onChange={e=>setFormData({...formData, teacher: e.target.value})} className="w-1/2 p-3 bg-slate-50 border rounded-xl font-medium" />
                                     </div>
-                                ))}
+                                    <input type="text" required placeholder="Subject / Title" value={formData.title} onChange={e=>setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
+                                    <button type="submit" className="w-full bg-scis-navy text-scis-gold py-4 rounded-xl font-black uppercase shadow-md btn-press">Schedule</button>
+                                </form>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 h-fit sticky top-24">
-                            <h3 className="font-display font-black text-xl text-scis-navy mb-4">Add to Calendar</h3>
-                            <form onSubmit={submit} className="space-y-4">
-                                <select required value={formData.class} onChange={e=>setFormData({...formData, class: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold">
-                                    <option value="">Select Class...</option>
-                                    {grades.map(g => <option key={g} value={g}>{g}</option>)}
-                                </select>
-                                <input type="date" required value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
-                                <input type="text" required placeholder="Subject / Title" value={formData.title} onChange={e=>setFormData({...formData, title: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl font-medium" />
-                                <button type="submit" className="w-full bg-scis-navy text-scis-gold py-4 rounded-xl font-black uppercase shadow-md btn-press">Schedule</button>
-                            </form>
-                        </div>
+                        {selectedDayView && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in" onClick={()=>setSelectedDayView(null)}>
+                                <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl" onClick={e=>e.stopPropagation()}>
+                                    <div className="p-6 border-b flex justify-between bg-slate-50 rounded-t-3xl"><h3 className="font-black text-xl">Tests on {selectedDayView}</h3><button onClick={()=>setSelectedDayView(null)} className="font-black">✕</button></div>
+                                    <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
+                                        {dayViewTests.map(t => (
+                                            <div key={t.id} className="p-4 border rounded-xl shadow-sm">
+                                                <div className="font-black text-lg text-scis-navy flex justify-between"><span>{t.title}</span><span className="text-sm bg-slate-100 px-2 py-1 rounded">{t.time}</span></div>
+                                                <div className="text-sm text-slate-500 mt-2 flex justify-between"><span>👤 {t.teacher}</span><span className="font-black text-purple-700 bg-purple-50 px-2 rounded">{t.class}</span></div>
+                                                {(user.email === t.teacherEmail || isAdmin) && <button onClick={()=>handleDelete(t.id)} className="mt-3 text-xs text-red-500 font-bold w-full text-center hover:bg-red-50 py-2 rounded">Delete</button>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </main>
                 </div>
             );
