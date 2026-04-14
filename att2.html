@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCIS Attendance Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        scis: { 
+                            navy: '#0a0f1e', 
+                            gold: '#ffd700', 
+                            glass: 'rgba(255, 255, 255, 0.08)',
+                            glassBorder: 'rgba(255, 255, 255, 0.18)',
+                            glassHighlight: 'rgba(255, 255, 255, 0.25)'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'morph': 'morph 8s ease-in-out infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'liquid': 'liquid 15s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        morph: {
+                            '0%, 100%': { borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%' },
+                            '50%': { borderRadius: '30% 60% 70% 40% / 50% 60% 30% 60%' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        },
+                        liquid: {
+                            '0%, 100%': { borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' },
+                            '34%': { borderRadius: '70% 30% 50% 50% / 30% 30% 70% 70%' },
+                            '67%': { borderRadius: '100% 60% 60% 100% / 100% 100% 60% 60%' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body { 
+            font-family: 'Inter', system-ui, sans-serif; 
+            background: #0a0f1e;
+            overflow-x: hidden;
+            color: white;
+        }
+        
+        /* Liquid Glass Base Styles */
+        .liquid-glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 8px 32px 0 rgba(0, 0, 0, 0.37),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .liquid-glass-strong {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .liquid-glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 
+                0 4px 30px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .liquid-glass-card:hover {
+            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%);
+            transform: translateY(-2px);
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+        
+        .liquid-glass-card:active {
+            transform: scale(0.98) translateY(0);
+        }
+        
+        /* Status-specific glass tints */
+        .glass-present {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.15) 100%);
+            border-color: rgba(34, 197, 94, 0.4);
+            box-shadow: 
+                0 4px 30px rgba(34, 197, 94, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+        
+        .glass-late {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.15) 100%);
+            border-color: rgba(245, 158, 11, 0.4);
+            box-shadow: 
+                0 4px 30px rgba(245, 158, 11, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+        
+        .glass-absent {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.15) 100%);
+            border-color: rgba(239, 68, 68, 0.4);
+            box-shadow: 
+                0 4px 30px rgba(239, 68, 68, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Animated Background Blobs */
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 10s ease-in-out infinite;
+        }
+        
+        .blob-1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 500px;
+            height: 500px;
+            top: -10%;
+            left: -10%;
+            animation-delay: 0s;
+        }
+        
+        .blob-2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            width: 400px;
+            height: 400px;
+            top: 40%;
+            right: -10%;
+            animation-delay: 2s;
+        }
+        
+        .blob-3 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            width: 450px;
+            height: 450px;
+            bottom: -10%;
+            left: 30%;
+            animation-delay: 4s;
+        }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { 
+            width: 8px; 
+            height: 8px; 
+        }
+        ::-webkit-scrollbar-track { 
+            background: rgba(255,255,255,0.05); 
+            border-radius: 10px; 
+        }
+        ::-webkit-scrollbar-thumb { 
+            background: rgba(255,255,255,0.2); 
+            border-radius: 10px; 
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: rgba(255,255,255,0.3); 
+        }
+        
+        .scrollbar-hide { 
+            -ms-overflow-style: none; 
+            scrollbar-width: none; 
+        }
+        .scrollbar-hide::-webkit-scrollbar { 
+            display: none; 
+        }
+        
+        /* Button Press Effect */
+        .btn-press { 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .btn-press:active:not(:disabled) { 
+            transform: scale(0.95); 
+        }
+        
+        /* Shimmer Effect for Loading */
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        /* Radial Menu Animation */
+        @keyframes popIn {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            70% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        .mood-pop {
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        /* Glass Input */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        }
+        
+        .glass-input option {
+            background: #1a1f35;
+            color: white;
+        }
+        
+        /* Status Badge Glow */
+        .status-glow {
+            box-shadow: 0 0 20px currentColor;
+        }
+        
+        /* Table Glass Effect */
+        .glass-table {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+        }
+        
+        .glass-table th {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+        }
+        
+        .glass-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
+            authDomain: "scis-house-points.firebaseapp.com",
+            projectId: "scis-house-points",
+            storageBucket: "scis-house-points.firebasestorage.app",
+            messagingSenderId: "929403398815",
+            appId: "1:929403398815:web:c6634925bfac5b665650aa"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
+
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, where, Timestamp, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+        }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- CONSTANTS ---
+        const SCHEDULE = [
+            { day: 1, start: '08:00', end: '09:30', class: '1sA' },
+            { day: 1, start: '09:45', end: '11:15', class: '2sB' },
+            { day: 2, start: '08:00', end: '09:30', class: '3sA' },
+        ];
+
+        const MOOD_OPTIONS = ['😐', '🤔', '🥰', '😄', '🙄', '🕵️', '🤯'];
+
+        // --- UTILITY: Format Name (First Name First) ---
+        const formatName = (fullName) => {
+            if (!fullName) return '';
+            const parts = fullName.trim().split(/\s+/);
+            if (parts.length === 1) return parts[0];
+            // Move last name to end if it appears to be last name first format
+            // Assuming input might be "LASTNAME FIRSTNAME" or "First Last"
+            const first = parts[0];
+            const rest = parts.slice(1).join(' ');
+            return `${rest} ${first}`.trim();
+        };
+
+        // --- RADIAL MOOD PICKER COMPONENT ---
+        function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect }) {
+            const radius = 90;
+
+            return (
+                <div className="relative flex justify-center items-center h-16 w-16 z-20">
+                    <button 
+                        className={`text-4xl drop-shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${isOpen ? 'scale-125' : ''}`}
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            onToggle(); 
+                        }}
+                    >
+                        {currentMood || '😐'}
+                    </button>
+                    
+                    {isOpen && (
+                        <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
+                            <div 
+                                className="fixed inset-0 z-40 cursor-default" 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    onToggle(); 
+                                }}
+                            ></div>
+                            
+                            {MOOD_OPTIONS.map((emoji, i) => {
+                                const angle = (i * (360 / MOOD_OPTIONS.length) - 90) * (Math.PI / 180);
+                                const x = Math.cos(angle) * radius;
+                                const y = Math.sin(angle) * radius;
+                                
+                                return (
+                                    <div 
+                                        key={emoji}
+                                        className="absolute z-50 pointer-events-none"
+                                        style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+                                    >
+                                        <button
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                onSelect(emoji); 
+                                            }}
+                                            className="pointer-events-auto flex items-center justify-center w-12 h-12 liquid-glass-strong rounded-full text-2xl cursor-pointer hover:scale-125 transition-transform mood-pop border border-white/30"
+                                            style={{ 
+                                                animationDelay: `${i * 0.05}s`,
+                                            }}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- ATTENDANCE KIOSK ---
+        function AttendanceTaker({ userEmail, students }) {
+            const [selectedClass, setSelectedClass] = useState('');
+            const [attendance, setAttendance] = useState({}); 
+            const [moods, setMoods] = useState({}); 
+            const [openMoodMenuId, setOpenMoodMenuId] = useState(null);
+            const [isSubmitting, setIsSubmitting] = useState(false); 
+            
+            const GRADES = useMemo(() => {
+                const grades = new Set(students.map(s => s.grade).filter(Boolean));
+                return [...grades].sort();
+            }, [students]);
+
+            useEffect(() => {
+                const now = new Date();
+                const day = now.getDay();
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const currentBlock = SCHEDULE.find(s => s.day === day && timeStr >= s.start && timeStr <= s.end);
+                if (currentBlock && !selectedClass) {
+                    setSelectedClass(currentBlock.class);
+                }
+            }, []);
+
+            const currentStudents = useMemo(() => {
+                if (!selectedClass) return [];
+                return students.filter(s => s.grade === selectedClass);
+            }, [selectedClass, students]);
+
+            useEffect(() => {
+                setAttendance({});
+                setMoods({});
+                setOpenMoodMenuId(null);
+            }, [selectedClass]);
+
+            const markAllPresent = () => {
+                const newAtt = {};
+                currentStudents.forEach(s => newAtt[s.id] = 'P');
+                setAttendance(newAtt);
+            };
+
+            const cycleStudent = (id) => {
+                setAttendance(prev => {
+                    const current = prev[id];
+                    if (current === 'P') return { ...prev, [id]: 'L' };
+                    if (current === 'L') return { ...prev, [id]: 'A' };
+                    if (current === 'A') {
+                        const next = {...prev};
+                        delete next[id];
+                        return next;
+                    }
+                    return { ...prev, [id]: 'P' };
+                });
+            };
+
+            const handleSubmit = async () => {
+                if (Object.keys(attendance).length !== currentStudents.length) {
+                    return alert("Please ensure every student is marked (Present, Late, or Absent) before submitting.");
+                }
+
+                setIsSubmitting(true);
+                try {
+                    const { db, collection, addDoc, Timestamp, appId } = window.FirebaseDB;
+                    
+                    const recordsToSave = currentStudents.map(s => ({
+                        studentId: s.id,
+                        studentName: s.displayName, // Already formatted
+                        status: attendance[s.id],
+                        mood: moods[s.id] || '😐'
+                    }));
+
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), {
+                        class: selectedClass,
+                        teacherEmail: userEmail || "teacher@scis-bo.com",
+                        timestamp: Timestamp.now(),
+                        records: recordsToSave,
+                        presentCount: Object.values(attendance).filter(v => v === 'P').length,
+                        lateCount: Object.values(attendance).filter(v => v === 'L').length,
+                        absentCount: Object.values(attendance).filter(v => v === 'A').length
+                    });
+                    
+                    alert("✨ Attendance locked and saved! Great job.");
+                    setSelectedClass('');
+                    setAttendance({});
+                    setMoods({});
+                } catch (error) {
+                    console.error("Error saving attendance:", error);
+                    alert("Failed to submit attendance.");
+                }
+                setIsSubmitting(false);
+            };
+
+            const missingCount = currentStudents.length - Object.keys(attendance).length;
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 relative z-10">
+                    {/* Header Card */}
+                    <div className="liquid-glass-strong rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 animate-fade-in">
+                        <div>
+                            <h2 className="text-3xl md:text-4xl font-display font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent tracking-tight">
+                                Class Roster
+                            </h2>
+                            <p className="text-white/60 font-medium text-sm mt-2 tracking-wide">
+                                Select mood & mark attendance
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 items-center w-full md:w-auto">
+                            <select 
+                                value={selectedClass} 
+                                onChange={e => setSelectedClass(e.target.value)}
+                                className="w-full sm:w-auto p-4 glass-input rounded-2xl font-semibold text-white text-lg appearance-none cursor-pointer min-w-[200px]"
+                            >
+                                <option value="" className="bg-slate-900">Select Class</option>
+                                {GRADES.map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
+                            </select>
+                            
+                            {selectedClass && currentStudents.length > 0 && (
+                                <button 
+                                    onClick={markAllPresent}
+                                    className="w-full sm:w-auto liquid-glass px-6 py-4 rounded-2xl font-bold text-sm uppercase tracking-wider shadow-lg hover:bg-white/20 btn-press text-white border border-white/20"
+                                >
+                                    Mark All Present
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {selectedClass && currentStudents.length > 0 && (
+                        <div className="animate-fade-in relative">
+                            {/* Student Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
+                                {currentStudents.map(student => {
+                                    const status = attendance[student.id];
+                                    const isMenuOpen = openMoodMenuId === student.id;
+                                    
+                                    let cardClass = "liquid-glass-card";
+                                    let statusLabel = "Tap to Mark";
+                                    let statusColor = "text-white/40";
+                                    
+                                    if (status === 'P') {
+                                        cardClass = "liquid-glass-card glass-present";
+                                        statusLabel = "Present";
+                                        statusColor = "text-green-300";
+                                    } else if (status === 'L') {
+                                        cardClass = "liquid-glass-card glass-late";
+                                        statusLabel = "Late";
+                                        statusColor = "text-amber-300";
+                                    } else if (status === 'A') {
+                                        cardClass = "liquid-glass-card glass-absent";
+                                        statusLabel = "Absent";
+                                        statusColor = "text-red-300";
+                                    }
+
+                                    return (
+                                        <div 
+                                            key={student.id}
+                                            onClick={() => cycleStudent(student.id)}
+                                            className={`
+                                                relative flex flex-col items-center justify-center p-4 rounded-3xl min-h-[160px] cursor-pointer select-none
+                                                ${cardClass} ${isMenuOpen ? 'z-50' : 'z-10'}
+                                            `}
+                                        >
+                                            {/* Shine effect */}
+                                            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-3xl pointer-events-none"></div>
+                                            
+                                            <RadialMoodPicker 
+                                                currentMood={moods[student.id]}
+                                                isOpen={isMenuOpen}
+                                                onToggle={() => setOpenMoodMenuId(isMenuOpen ? null : student.id)}
+                                                onSelect={(emoji) => {
+                                                    setMoods(prev => ({...prev, [student.id]: emoji}));
+                                                    setOpenMoodMenuId(null);
+                                                }}
+                                            />
+
+                                            <span className="font-semibold text-sm leading-tight text-center truncate w-full px-2 mt-4 text-white drop-shadow-md">
+                                                {student.displayName}
+                                            </span>
+                                            
+                                            <div className="mt-auto pt-3">
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/10 ${statusColor}`}>
+                                                    {statusLabel}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Fixed Bottom Bar */}
+                            <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 liquid-glass-strong border-t border-white/20 z-[60] flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div className="text-white font-semibold">
+                                    {missingCount > 0 ? (
+                                        <span className="text-amber-300 flex items-center gap-2 animate-pulse">
+                                            <span className="w-2 h-2 bg-amber-300 rounded-full"></span>
+                                            {missingCount} student{missingCount > 1 ? 's' : ''} remaining
+                                        </span>
+                                    ) : (
+                                        <span className="text-green-300 flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-green-300 rounded-full"></span>
+                                            All students accounted for
+                                        </span>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting || missingCount > 0}
+                                    className={`w-full sm:w-auto px-8 py-3 rounded-2xl font-bold text-lg tracking-wide shadow-2xl transition-all btn-press border ${
+                                        missingCount === 0 
+                                            ? 'bg-white text-slate-900 hover:bg-white/90 border-white' 
+                                            : 'bg-white/10 text-white/30 border-white/10 cursor-not-allowed'
+                                    }`}
+                                >
+                                    {isSubmitting ? 'Saving...' : 'Lock Attendance'}
+                                </button>
+                            </div>
+                            <div className="h-24"></div> 
+                        </div>
+                    )}
+                    
+                    {selectedClass && currentStudents.length === 0 && (
+                        <div className="text-center py-20 liquid-glass rounded-3xl border border-dashed border-white/20">
+                            <p className="text-white/60 font-bold text-xl">No students found for {selectedClass}</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- PERSONAL ATTENDANCE HISTORY & CLASS INSIGHTS ---
+        function AttendanceHistory({ userEmail }) {
+            const [logs, setLogs] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedClass, setSelectedClass] = useState('');
+
+            useEffect(() => {
+                const { db, collection, query, where, onSnapshot, appId } = window.FirebaseDB;
+                
+                const q = query(
+                    collection(db, 'artifacts', appId, 'public', 'data', 'attendance'),
+                    where("teacherEmail", "==", userEmail)
+                );
+                
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const list = [];
+                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                    setLogs(list);
+                    setLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, [userEmail]);
+
+            const teacherClasses = useMemo(() => {
+                return [...new Set(logs.map(l => l.class))].sort();
+            }, [logs]);
+
+            const filteredLogs = useMemo(() => {
+                if (!selectedClass) return logs;
+                return logs.filter(l => l.class === selectedClass);
+            }, [logs, selectedClass]);
+
+            const moodStats = useMemo(() => {
+                const counts = {};
+                MOOD_OPTIONS.forEach(m => counts[m] = 0);
+                
+                filteredLogs.forEach(log => {
+                    if (log.records) {
+                        log.records.forEach(rec => {
+                            if (rec.mood && counts[rec.mood] !== undefined) {
+                                counts[rec.mood]++;
+                            }
+                        });
+                    }
+                });
+                return counts;
+            }, [filteredLogs]);
+
+            const moodTimeline = useMemo(() => {
+                const sortedLogs = [...filteredLogs].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+                
+                return sortedLogs.map(log => {
+                    const counts = {};
+                    if (log.records) {
+                        log.records.forEach(rec => {
+                            if (rec.mood) counts[rec.mood] = (counts[rec.mood] || 0) + 1;
+                        });
+                    }
+                    
+                    let dominantMood = '😐';
+                    let maxCount = 0;
+                    for (const [m, c] of Object.entries(counts)) {
+                        if (c > maxCount) { maxCount = c; dominantMood = m; }
+                    }
+                    
+                    const d = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
+                    const dateStr = d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Unknown';
+
+                    return {
+                        id: log.id,
+                        date: dateStr,
+                        mood: maxCount > 0 ? dominantMood : 'N/A'
+                    };
+                }).filter(x => x.mood !== 'N/A');
+            }, [filteredLogs]);
+
+            const getChronologicalLogs = () => [...filteredLogs].sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+            
+            const getStudentMatrix = () => {
+                const sortedLogs = getChronologicalLogs();
+                const studentMap = {}; 
+                
+                sortedLogs.forEach((log, logIndex) => {
+                    if (log.records && Array.isArray(log.records)) {
+                        log.records.forEach(rec => {
+                            const studentName = rec.studentName || 'Unknown';
+                            if (!studentMap[studentName]) {
+                                studentMap[studentName] = new Array(sortedLogs.length).fill('-');
+                            }
+                            studentMap[studentName][logIndex] = rec.status || '-';
+                        });
+                    }
+                });
+
+                return {
+                    sortedLogs,
+                    students: Object.keys(studentMap).sort((a, b) => a.localeCompare(b)),
+                    studentMap
+                };
+            };
+
+            const handleExportCSV = () => {
+                if (filteredLogs.length === 0) return alert("No logs to export.");
+                
+                const { sortedLogs, students, studentMap } = getStudentMatrix();
+                
+                const headers = ["Student Name", "Class"];
+                sortedLogs.forEach(log => {
+                    const dateObj = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
+                    const dateStr = dateObj ? `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}` : '';
+                    const timeStr = dateObj ? `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}` : '';
+                    headers.push(`"${dateStr} ${timeStr}"`); 
+                });
+
+                const rows = students.map(studentName => {
+                    const escapedName = `"${studentName.replace(/"/g, '""')}"`;
+                    const classToDisplay = selectedClass ? selectedClass : "Mixed";
+                    const escapedClass = `"${classToDisplay}"`;
+                    return [escapedName, escapedClass, ...studentMap[studentName]].join(',');
+                });
+
+                const csvContent = [headers.join(','), ...rows].join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `SCIS_Attendance_${selectedClass || 'All'}_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const formatDate = (ts) => {
+                if (!ts) return '';
+                const d = new Date(ts.seconds * 1000);
+                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            };
+
+            const maxMoodCount = Math.max(...Object.values(moodStats), 1);
+
+            return (
+                <div className="max-w-6xl mx-auto px-4 space-y-6 relative z-10 pb-32">
+                    <div className="liquid-glass-strong rounded-[2rem] p-6 md:p-10 shadow-2xl">
+                        
+                        {/* Header & Controls */}
+                        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 mb-8 border-b border-white/10 pb-6">
+                            <div>
+                                <h2 className="text-3xl font-display font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent tracking-tight">
+                                    My Log & Insights
+                                </h2>
+                                <p className="text-white/50 font-medium text-sm mt-2 tracking-wide">
+                                    {userEmail}
+                                </p>
+                            </div>
+                            
+                            <div className="flex flex-col sm:flex-row gap-4 items-center w-full md:w-auto">
+                                <select 
+                                    value={selectedClass} 
+                                    onChange={e => setSelectedClass(e.target.value)}
+                                    className="w-full sm:w-auto p-3 glass-input rounded-xl font-semibold text-white appearance-none cursor-pointer min-w-[180px]"
+                                >
+                                    <option value="" className="bg-slate-900">All My Classes</option>
+                                    {teacherClasses.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                                </select>
+
+                                <button 
+                                    onClick={handleExportCSV}
+                                    disabled={filteredLogs.length === 0}
+                                    className="w-full sm:w-auto liquid-glass px-5 py-3 rounded-xl font-bold text-sm shadow-lg transition-all btn-press flex items-center justify-center gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
+                                >
+                                    <span>📥</span> Export
+                                </button>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div className="p-10 text-center">
+                                <div className="w-16 h-16 mx-auto rounded-full liquid-glass shimmer"></div>
+                                <p className="text-white/60 font-semibold mt-4 animate-pulse">Loading records...</p>
+                            </div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-center py-16 liquid-glass rounded-3xl border border-dashed border-white/20">
+                                <p className="text-white/50 font-bold text-xl">No attendance logs yet</p>
+                                <p className="text-white/30 text-sm mt-2">Start taking attendance to see your history here</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-8 animate-fade-in">
+                                
+                                {/* MOOD ANALYTICS */}
+                                {selectedClass && (
+                                    <div className="liquid-glass rounded-2xl p-6 space-y-8">
+                                        <div>
+                                            <h3 className="font-display font-bold text-lg text-white/90 mb-6 uppercase tracking-wider">
+                                                Mood Profile
+                                            </h3>
+                                            <div className="flex justify-between items-end gap-2 sm:gap-4 h-32">
+                                                {MOOD_OPTIONS.map(mood => {
+                                                    const count = moodStats[mood];
+                                                    const pct = maxMoodCount > 0 ? (count / maxMoodCount) * 100 : 0;
+                                                    const minHeight = Math.max(pct, 8);
+                                                    const scale = 1 + (pct / 100) * 0.5;
+                                                    const opacity = count > 0 ? 1 : 0.3;
+                                                    
+                                                    return (
+                                                        <div key={mood} className="flex flex-col items-center flex-1 transition-all duration-300 hover:scale-105" style={{ opacity }}>
+                                                            <div className="font-bold text-sm text-white/80 mb-2">{count}</div>
+                                                            <div className="w-full max-w-[40px] bg-white/10 rounded-t-xl h-full flex items-end relative overflow-hidden backdrop-blur-sm">
+                                                                <div 
+                                                                    className="w-full bg-gradient-to-t from-blue-500/80 to-purple-500/80 rounded-t-xl transition-all duration-1000 shadow-lg" 
+                                                                    style={{ height: `${minHeight}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="mt-4 text-2xl drop-shadow-md transition-transform duration-500" style={{ transform: `scale(${scale})` }}>
+                                                                {mood}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* MOOD TIMELINE */}
+                                        {moodTimeline.length > 0 && (
+                                            <div className="pt-6 border-t border-white/10">
+                                                <h3 className="font-display font-bold text-lg text-white/90 mb-4 uppercase tracking-wider">
+                                                    Mood Timeline
+                                                </h3>
+                                                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                                                    {moodTimeline.map((item, idx) => (
+                                                        <div key={item.id} className="flex flex-col items-center min-w-[80px] liquid-glass rounded-2xl p-3 shrink-0 hover:bg-white/10 transition-colors">
+                                                            <span className="text-xs font-medium text-white/50 mb-2">{item.date}</span>
+                                                            <span className="text-3xl drop-shadow-lg">{item.mood}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* CONDITIONAL VIEW */}
+                                {!selectedClass ? (
+                                    <div className="overflow-x-auto liquid-glass rounded-2xl max-h-[600px]">
+                                        <table className="w-full text-left border-collapse min-w-[700px]">
+                                            <thead>
+                                                <tr className="border-b border-white/10">
+                                                    <th className="p-4 text-xs font-bold text-white/50 uppercase tracking-widest">Date / Time</th>
+                                                    <th className="p-4 text-xs font-bold text-white/50 uppercase tracking-widest">Class</th>
+                                                    <th className="p-4 text-xs font-bold text-white/50 uppercase tracking-widest text-center">Present</th>
+                                                    <th className="p-4 text-xs font-bold text-white/50 uppercase tracking-widest text-center">Late</th>
+                                                    <th className="p-4 text-xs font-bold text-white/50 uppercase tracking-widest text-center">Absent</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-sm">
+                                                {filteredLogs.map(log => (
+                                                    <tr key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                        <td className="p-4 whitespace-nowrap text-white/70 font-medium text-xs">{formatDate(log.timestamp)}</td>
+                                                        <td className="p-4 font-bold text-lg text-white">{log.class}</td>
+                                                        <td className="p-4 text-center">
+                                                            <span className="bg-green-500/20 text-green-300 px-3 py-1 rounded-lg font-bold text-sm border border-green-500/30">
+                                                                {log.presentCount || 0}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            {log.lateCount > 0 ? (
+                                                                <span className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-lg font-bold text-sm border border-amber-500/30">
+                                                                    {log.lateCount}
+                                                                </span>
+                                                            ) : <span className="text-white/20">-</span>}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            {log.absentCount > 0 ? (
+                                                                <span className="bg-red-500/20 text-red-300 px-3 py-1 rounded-lg font-bold text-sm border border-red-500/30">
+                                                                    {log.absentCount}
+                                                                </span>
+                                                            ) : <span className="text-white/20">-</span>}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto liquid-glass rounded-2xl max-h-[600px] relative">
+                                        <table className="w-full text-left border-collapse min-w-max">
+                                            <thead className="sticky top-0 z-20">
+                                                <tr className="border-b border-white/10">
+                                                    <th className="p-4 bg-white/5 backdrop-blur-xl sticky left-0 z-30 border-r border-white/10 text-xs font-bold text-white/80 uppercase tracking-widest min-w-[200px]">
+                                                        Student Name
+                                                    </th>
+                                                    {getStudentMatrix().sortedLogs.map(log => (
+                                                        <th key={log.id} className="p-4 text-center text-[10px] font-bold text-white/50 uppercase tracking-wider border-r border-white/5 bg-white/5 backdrop-blur-xl">
+                                                            <div className="flex flex-col items-center">
+                                                                <span>{log.timestamp ? new Date(log.timestamp.seconds*1000).toLocaleDateString('en-GB', {day:'2-digit', month:'short'}) : ''}</span>
+                                                                <span className="text-white/30 font-medium">{log.timestamp ? new Date(log.timestamp.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''}</span>
+                                                            </div>
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-sm divide-y divide-white/5">
+                                                {getStudentMatrix().students.map(studentName => (
+                                                    <tr key={studentName} className="hover:bg-white/5 transition-colors">
+                                                        <td className="p-4 bg-white/5 backdrop-blur-md sticky left-0 z-10 border-r border-white/10 font-semibold text-xs text-white/90 truncate">
+                                                            {studentName}
+                                                        </td>
+                                                        {getStudentMatrix().studentMap[studentName].map((status, i) => {
+                                                            let badgeClass = "text-white/20 bg-white/5 border-white/10";
+                                                            if (status === 'P') badgeClass = "bg-green-500/20 text-green-300 border-green-500/30";
+                                                            if (status === 'L') badgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+                                                            if (status === 'A') badgeClass = "bg-red-500/20 text-red-300 border-red-500/30";
+                                                            
+                                                            return (
+                                                                <td key={i} className="p-2 text-center border-r border-white/5">
+                                                                    <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-lg font-bold text-sm border backdrop-blur-sm ${badgeClass}`}>
+                                                                        {status}
+                                                                    </div>
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- MAIN APP ---
+        function App() {
+            if (!window.FirebaseDB) return (
+                <div className="flex h-screen items-center justify-center bg-slate-900 text-white">
+                    <div className="liquid-glass-strong p-8 rounded-3xl">
+                        <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="font-bold text-lg">Initializing System...</p>
+                    </div>
+                </div>
+            );
+
+            const [user, setUser] = useState(null);
+            const [currentTab, setCurrentTab] = useState('take');
+            const [authLoaded, setAuthLoaded] = useState(false);
+            const [students, setStudents] = useState([]);
+
+            const userEmail = user?.email ? user.email.toLowerCase() : (user?.isAnonymous ? 'teacher@scis-bo.com' : null);
+
+            useEffect(() => {
+                const { auth, db, collection, query, onSnapshot, appId, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseDB;
+                
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else if (!window.location.hostname.includes('github.io') && window.location.hostname !== 'localhost') {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) { console.error("Auth init failed:", e); }
+                };
+
+                initAuth();
+
+                const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    setAuthLoaded(true);
+                });
+
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+                const unsubscribeStudents = onSnapshot(q, (snapshot) => {
+                    const list = [];
+                    snapshot.forEach(doc => {
+                        let docData = doc.data();
+                        let formattedGrade = docData.grade || '';
+                        formattedGrade = formattedGrade.replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
+                        
+                        // Format name: First Name First
+                        const rawName = docData.name || '';
+                        const displayName = formatName(rawName);
+                        
+                        list.push({ 
+                            id: doc.id, 
+                            ...docData, 
+                            grade: formattedGrade, 
+                            displayName: displayName 
+                        });
+                    });
+                    list.sort((a,b) => a.displayName.localeCompare(b.displayName));
+                    setStudents(list);
+                });
+
+                return () => {
+                    unsubscribeAuth();
+                    unsubscribeStudents();
+                };
+            }, []);
+
+            const handleLogin = async () => {
+                const { auth, signInWithPopup, OAuthProvider } = window.FirebaseDB;
+                const provider = new OAuthProvider('microsoft.com');
+                provider.setCustomParameters({ tenant: 'scis-bo.com' });
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Login failed:", error);
+                }
+            };
+
+            const handleLogout = async () => {
+                const { auth, signOut } = window.FirebaseDB;
+                await signOut(auth);
+            };
+
+            if (!authLoaded) return (
+                <div className="flex h-screen items-center justify-center bg-slate-900 text-white">
+                    <div className="liquid-glass-strong p-8 rounded-3xl">
+                        <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="font-bold text-lg">Connecting...</p>
+                    </div>
+                </div>
+            );
+
+            if (!user || (!user.email && !user.isAnonymous)) {
+                return (
+                    <div className="flex h-screen flex-col items-center justify-center bg-slate-900 p-6 text-center relative overflow-hidden">
+                        {/* Animated Background Blobs */}
+                        <div className="blob blob-1"></div>
+                        <div className="blob blob-2"></div>
+                        <div className="blob blob-3"></div>
+                        
+                        <div className="liquid-glass-strong p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full relative z-10 animate-fade-in">
+                            <div className="w-24 h-24 mx-auto mb-6 rounded-[2rem] liquid-glass flex items-center justify-center text-5xl shadow-inner border border-white/30">
+                                📝
+                            </div>
+                            <h2 className="text-3xl font-display font-bold text-white tracking-tight mb-2">
+                                SCIS Kiosk
+                            </h2>
+                            <p className="text-white/60 text-sm font-medium mb-10">
+                                Liquid Glass Attendance Portal
+                            </p>
+                            <button 
+                                onClick={handleLogin} 
+                                className="w-full liquid-glass px-6 py-4 rounded-2xl font-bold text-white hover:bg-white/20 transition-all shadow-xl btn-press flex items-center justify-center gap-3 border border-white/20"
+                            >
+                                <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                                    <path fill="#f25022" d="M0 0h10v10H0z"/>
+                                    <path fill="#7fba00" d="M11 0h10v10H11z"/>
+                                    <path fill="#00a4ef" d="M0 11h10v10H0z"/>
+                                    <path fill="#ffb900" d="M11 11h10v10H11z"/>
+                                </svg>
+                                Sign In to Activate
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen relative bg-slate-900 overflow-hidden">
+                    {/* Animated Background */}
+                    <div className="fixed inset-0 z-0">
+                        <div className="blob blob-1"></div>
+                        <div className="blob blob-2"></div>
+                        <div className="blob blob-3"></div>
+                        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-[100px]"></div>
+                    </div>
+                    
+                    {/* Navigation */}
+                    <nav className="liquid-glass-strong border-b border-white/10 px-4 md:px-8 py-4 sticky top-0 z-40">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 liquid-glass flex items-center justify-center rounded-2xl text-2xl border border-white/20">
+                                    📝
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-display font-bold text-white tracking-tight hidden sm:block">
+                                        Attendance Kiosk
+                                    </h1>
+                                    <h1 className="text-xl font-display font-bold text-white tracking-tight sm:hidden">
+                                        Kiosk
+                                    </h1>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                                <div className="flex liquid-glass p-1.5 rounded-2xl">
+                                    <button 
+                                        onClick={() => setCurrentTab('take')} 
+                                        className={`px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${
+                                            currentTab === 'take' 
+                                                ? 'bg-white text-slate-900 shadow-lg' 
+                                                : 'text-white/70 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        Take
+                                    </button>
+                                    <button 
+                                        onClick={() => setCurrentTab('history')} 
+                                        className={`px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${
+                                            currentTab === 'history' 
+                                                ? 'bg-white text-slate-900 shadow-lg' 
+                                                : 'text-white/70 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        Log
+                                    </button>
+                                </div>
+                                <button 
+                                    onClick={handleLogout} 
+                                    className="liquid-glass p-3 rounded-2xl text-white/70 hover:text-white hover:bg-white/10 transition-all btn-press"
+                                    title="Sign Out"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="pt-6 sm:pt-8 relative z-10">
+                        {currentTab === 'take' 
+                            ? <AttendanceTaker userEmail={userEmail} students={students} /> 
+                            : <AttendanceHistory userEmail={userEmail} />
+                        }
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
