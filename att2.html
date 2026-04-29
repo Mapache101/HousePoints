@@ -10,10 +10,7 @@
             theme: {
                 extend: {
                     colors: {
-                        scis: { 
-                            navy: '#1e3a5f', 
-                            gold: '#f59e0b', 
-                        }
+                        scis: { navy: '#1e3a5f', gold: '#f59e0b' }
                     },
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -46,16 +43,12 @@
             100% { background-position: 0% 50%; }
         }
         
-        /* Light Liquid Glass - optimized for projection */
         .glass {
             background: rgba(255, 255, 255, 0.65);
             backdrop-filter: blur(24px) saturate(140%);
             -webkit-backdrop-filter: blur(24px) saturate(140%);
             border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 
-                0 4px 24px rgba(30, 58, 95, 0.08),
-                0 1px 3px rgba(30, 58, 95, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 24px rgba(30, 58, 95, 0.08), 0 1px 3px rgba(30, 58, 95, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
         
         .glass-strong {
@@ -63,10 +56,7 @@
             backdrop-filter: blur(32px) saturate(160%);
             -webkit-backdrop-filter: blur(32px) saturate(160%);
             border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 
-                0 8px 40px rgba(30, 58, 95, 0.12),
-                0 2px 8px rgba(30, 58, 95, 0.06),
-                inset 0 1px 0 rgba(255, 255, 255, 1);
+            box-shadow: 0 8px 40px rgba(30, 58, 95, 0.12), 0 2px 8px rgba(30, 58, 95, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
         }
         
         .glass-card {
@@ -75,52 +65,36 @@
             -webkit-backdrop-filter: blur(20px) saturate(130%);
             border: 1px solid rgba(255, 255, 255, 0.7);
             border-bottom: 2px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 
-                0 2px 16px rgba(30, 58, 95, 0.06),
-                0 1px 4px rgba(30, 58, 95, 0.04),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 2px 16px rgba(30, 58, 95, 0.06), 0 1px 4px rgba(30, 58, 95, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .glass-card:hover {
             background: rgba(255, 255, 255, 0.75);
             transform: translateY(-3px);
-            box-shadow: 
-                0 12px 40px rgba(30, 58, 95, 0.12),
-                0 4px 12px rgba(30, 58, 95, 0.08),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            box-shadow: 0 12px 40px rgba(30, 58, 95, 0.12), 0 4px 12px rgba(30, 58, 95, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
         
-        .glass-card:active {
-            transform: scale(0.97) translateY(0);
-        }
+        .glass-card:active { transform: scale(0.97) translateY(0); }
         
-        /* Status cards with strong projection-friendly colors */
         .card-present {
             background: linear-gradient(145deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.15));
             border-color: rgba(34, 197, 94, 0.5);
-            box-shadow: 
-                0 4px 20px rgba(34, 197, 94, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
         
         .card-late {
             background: linear-gradient(145deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.15));
             border-color: rgba(245, 158, 11, 0.5);
-            box-shadow: 
-                0 4px 20px rgba(245, 158, 11, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
         
         .card-absent {
             background: linear-gradient(145deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.15));
             border-color: rgba(239, 68, 68, 0.5);
-            box-shadow: 
-                0 4px 20px rgba(239, 68, 68, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
         
-        /* Floating blobs for depth */
         .blob {
             position: fixed;
             border-radius: 50%;
@@ -130,45 +104,14 @@
             z-index: 0;
         }
         
-        .blob-1 {
-            width: 600px; height: 600px;
-            background: linear-gradient(135deg, #93c5fd, #c4b5fd);
-            top: -20%; left: -10%;
-            animation: float1 15s ease-in-out infinite;
-        }
+        .blob-1 { width: 600px; height: 600px; background: linear-gradient(135deg, #93c5fd, #c4b5fd); top: -20%; left: -10%; animation: float1 15s ease-in-out infinite; }
+        .blob-2 { width: 500px; height: 500px; background: linear-gradient(135deg, #fca5a5, #fdba74); bottom: -10%; right: -5%; animation: float2 18s ease-in-out infinite; }
+        .blob-3 { width: 400px; height: 400px; background: linear-gradient(135deg, #86efac, #67e8f9); top: 40%; left: 40%; animation: float3 12s ease-in-out infinite; }
         
-        .blob-2 {
-            width: 500px; height: 500px;
-            background: linear-gradient(135deg, #fca5a5, #fdba74);
-            bottom: -10%; right: -5%;
-            animation: float2 18s ease-in-out infinite;
-        }
+        @keyframes float1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -30px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
+        @keyframes float2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-40px, -20px) scale(1.05); } 66% { transform: translate(20px, 40px) scale(0.9); } }
+        @keyframes float3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(50px, -40px) scale(1.15); } }
         
-        .blob-3 {
-            width: 400px; height: 400px;
-            background: linear-gradient(135deg, #86efac, #67e8f9);
-            top: 40%; left: 40%;
-            animation: float3 12s ease-in-out infinite;
-        }
-        
-        @keyframes float1 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(30px, -30px) scale(1.1); }
-            66% { transform: translate(-20px, 20px) scale(0.95); }
-        }
-        
-        @keyframes float2 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(-40px, -20px) scale(1.05); }
-            66% { transform: translate(20px, 40px) scale(0.9); }
-        }
-        
-        @keyframes float3 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(50px, -40px) scale(1.15); }
-        }
-        
-        /* Scrollbars */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: rgba(30, 58, 95, 0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(30, 58, 95, 0.2); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
@@ -177,11 +120,9 @@
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         
-        /* Button press */
         .btn-press { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-press:active:not(:disabled) { transform: scale(0.95); }
         
-        /* Inputs */
         .glass-select {
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(12px);
@@ -197,25 +138,16 @@
             box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 2px 8px rgba(30, 58, 95, 0.08);
         }
         
-        .glass-select option {
-            background: #f8fafc;
-            color: #1e293b;
-            font-size: 16px;
-            padding: 8px;
-        }
+        .glass-select option { background: #f8fafc; color: #1e293b; font-size: 16px; padding: 8px; }
         
-        /* Mood picker animation */
         @keyframes moodPop {
             0% { transform: scale(0) rotate(-120deg); opacity: 0; }
             60% { transform: scale(1.15) rotate(5deg); opacity: 1; }
             100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
         
-        .mood-btn-anim {
-            animation: moodPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
+        .mood-btn-anim { animation: moodPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         
-        /* Status badge */
         .status-badge {
             font-size: 11px;
             font-weight: 800;
@@ -226,7 +158,6 @@
             backdrop-filter: blur(8px);
         }
         
-        /* Name display */
         .student-name {
             font-weight: 700;
             font-size: 15px;
@@ -238,7 +169,6 @@
             hyphens: auto;
         }
         
-        /* Bottom bar */
         .bottom-bar {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(32px) saturate(160%);
@@ -247,7 +177,6 @@
             box-shadow: 0 -4px 30px rgba(30, 58, 95, 0.1);
         }
         
-        /* Table styles */
         .data-table {
             background: rgba(255, 255, 255, 0.5);
             backdrop-filter: blur(16px);
@@ -264,21 +193,17 @@
             padding: 14px 16px;
         }
         
-        .data-table td {
-            padding: 12px 16px;
-            color: #334155;
-            font-weight: 500;
-        }
+        .data-table td { padding: 12px 16px; color: #334155; font-weight: 500; }
+        .data-table tr:hover { background: rgba(59, 130, 246, 0.05); }
         
-        .data-table tr:hover {
-            background: rgba(59, 130, 246, 0.05);
-        }
+        .modal-overlay { background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px); }
         
-        /* Modal overlay */
-        .modal-overlay {
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(8px);
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
         }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     </style>
 </head>
 <body>
@@ -303,7 +228,6 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
-
             window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, where, Timestamp, doc, setDoc, getDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
@@ -311,88 +235,63 @@
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- SCHEDULE ---
         const SCHEDULE = [
             { day: 1, start: '08:00', end: '09:30', class: '1sA' },
             { day: 1, start: '09:45', end: '11:15', class: '2sB' },
             { day: 2, start: '08:00', end: '09:30', class: '3sA' },
         ];
 
-        // --- DEFAULT MOOD OPTIONS ---
         const DEFAULT_MOOD_OPTIONS = ['😐', '🤔', '🥰', '😄', '🙄', '🕵️', '🤯'];
 
-        // --- UTILITY: Format Name (First Name First) ---
         const formatName = (fullName) => {
             if (!fullName) return '';
             const parts = fullName.trim().split(/\s+/);
             if (parts.length <= 1) return fullName.trim();
-            // Detect if already First Last format (first part is lowercase or mixed, not all caps)
             const firstPart = parts[0];
             const isAllCaps = firstPart === firstPart.toUpperCase() && firstPart.length > 1;
-            if (!isAllCaps) return fullName.trim(); // Already in First Last format
-            // Convert "LASTNAME FIRSTNAME" to "Firstname Lastname"
+            if (!isAllCaps) return fullName.trim();
             const lastName = parts[0];
             const firstNames = parts.slice(1).join(' ');
             const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-            return `${capitalize(firstNames)} ${capitalize(lastName)}`.trim();
+            return (capitalize(firstNames) + ' ' + capitalize(lastName)).trim();
         };
 
-        // --- MOOD CONFIGURATION MODAL ---
         function MoodConfigModal({ isOpen, onClose, currentMoods, onSave }) {
             const [moods, setMoods] = useState(currentMoods.join(' '));
-            
             if (!isOpen) return null;
-            
             const handleSave = () => {
                 const newMoods = moods.split(/\s+/).filter(m => m.length > 0);
-                if (newMoods.length === 0) {
-                    alert('Please enter at least one emoji');
-                    return;
-                }
+                if (newMoods.length === 0) { alert('Please enter at least one emoji'); return; }
                 onSave(newMoods);
                 onClose();
             };
-            
             return (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
                     <div className="glass-strong rounded-3xl p-8 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-2xl font-bold text-slate-800 mb-2">Configure Mood Emojis</h3>
                         <p className="text-slate-500 text-sm mb-6">Enter emojis separated by spaces</p>
-                        <textarea
-                            value={moods}
-                            onChange={e => setMoods(e.target.value)}
+                        <textarea value={moods} onChange={e => setMoods(e.target.value)}
                             className="w-full p-4 rounded-2xl glass-select min-h-[100px] text-lg resize-none mb-4"
-                            placeholder="😐 🤔 🥰 😄 🙄 🕵️ 🤯"
-                        />
+                            placeholder="😐 🤔 🥰 😄 🙄 🕵️ 🤯" />
                         <div className="flex gap-3">
-                            <button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl btn-press shadow-lg">
-                                Save Changes
-                            </button>
-                            <button onClick={onClose} className="flex-1 glass font-bold py-3 px-6 rounded-2xl btn-press text-slate-600 hover:bg-white/80">
-                                Cancel
-                            </button>
+                            <button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl btn-press shadow-lg">Save Changes</button>
+                            <button onClick={onClose} className="flex-1 glass font-bold py-3 px-6 rounded-2xl btn-press text-slate-600 hover:bg-white/80">Cancel</button>
                         </div>
                     </div>
                 </div>
             );
         }
 
-        // --- RADIAL MOOD PICKER ---
         function RadialMoodPicker({ currentMood, isOpen, onToggle, onSelect, moodOptions }) {
             const radius = 100;
-            
             return (
                 <div className="relative flex justify-center items-center z-20">
-                    <button 
-                        className={`text-5xl cursor-pointer transition-all duration-200 hover:scale-110 drop-shadow-md ${isOpen ? 'scale-125' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); onToggle(); }}
-                        title="Click to change mood"
-                    >
+                    <button className={`text-5xl cursor-pointer transition-all duration-200 hover:scale-110 drop-shadow-md ${isOpen ? 'scale-125' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); onToggle(); }} title="Click to change mood">
                         {currentMood || '😐'}
                     </button>
-                    
                     {isOpen && (
                         <div className="absolute top-1/2 left-1/2 w-0 h-0 z-50">
                             <div className="fixed inset-0 z-40 cursor-default" onClick={(e) => { e.stopPropagation(); onToggle(); }}></div>
@@ -417,11 +316,10 @@
             );
         }
 
-        // --- ATTENDANCE TAKER ---
         function AttendanceTaker({ userEmail, students }) {
             const [selectedClass, setSelectedClass] = useState('');
-            const [attendance, setAttendance] = useState({}); 
-            const [moods, setMoods] = useState({}); 
+            const [attendance, setAttendance] = useState({});
+            const [moods, setMoods] = useState({});
             const [openMoodMenuId, setOpenMoodMenuId] = useState(null);
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [moodOptions, setMoodOptions] = useState(DEFAULT_MOOD_OPTIONS);
@@ -433,7 +331,6 @@
                 return [...grades].sort();
             }, [students]);
 
-            // Load saved mood preferences from Firebase
             useEffect(() => {
                 if (!userEmail) return;
                 const { db, doc, getDoc, appId } = window.FirebaseDB;
@@ -447,11 +344,10 @@
                 }).catch(() => {});
             }, [userEmail]);
 
-            // Auto-select class based on schedule
             useEffect(() => {
                 const now = new Date();
                 const day = now.getDay();
-                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
                 const currentBlock = SCHEDULE.find(s => s.day === day && timeStr >= s.start && timeStr <= s.end);
                 if (currentBlock && !selectedClass) setSelectedClass(currentBlock.class);
             }, []);
@@ -461,13 +357,10 @@
                 return students.filter(s => s.grade === selectedClass);
             }, [selectedClass, students]);
 
-            // Load persisted moods for these students
             useEffect(() => {
                 if (!selectedClass) return;
                 const persisted = {};
-                currentStudents.forEach(s => {
-                    if (savedMoods[s.id]) persisted[s.id] = savedMoods[s.id];
-                });
+                currentStudents.forEach(s => { if (savedMoods[s.id]) persisted[s.id] = savedMoods[s.id]; });
                 setMoods(persisted);
                 setAttendance({});
                 setOpenMoodMenuId(null);
@@ -481,9 +374,7 @@
 
             const markRemainingAbsent = () => {
                 const newAtt = { ...attendance };
-                currentStudents.forEach(s => {
-                    if (!newAtt[s.id]) newAtt[s.id] = 'A';
-                });
+                currentStudents.forEach(s => { if (!newAtt[s.id]) newAtt[s.id] = 'A'; });
                 setAttendance(newAtt);
             };
 
@@ -492,18 +383,13 @@
                     const current = prev[id];
                     if (current === 'P') return { ...prev, [id]: 'L' };
                     if (current === 'L') return { ...prev, [id]: 'A' };
-                    if (current === 'A') {
-                        const next = {...prev};
-                        delete next[id];
-                        return next;
-n                    }
+                    if (current === 'A') { const next = {...prev}; delete next[id]; return next; }
                     return { ...prev, [id]: 'P' };
                 });
             };
 
             const handleMoodSelect = async (studentId, emoji) => {
                 setMoods(prev => ({...prev, [studentId]: emoji}));
-                // Save to Firebase for persistence
                 if (userEmail) {
                     try {
                         const { db, doc, setDoc, appId } = window.FirebaseDB;
@@ -554,7 +440,7 @@ n                    }
                         lateCount: Object.values(attendance).filter(v => v === 'L').length,
                         absentCount: Object.values(attendance).filter(v => v === 'A').length
                     });
-                    alert("✅ Attendance saved successfully!");
+                    alert("Attendance saved successfully!");
                     setSelectedClass('');
                     setAttendance({});
                 } catch (error) {
@@ -569,29 +455,19 @@ n                    }
 
             return (
                 <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 relative z-10">
-                    <MoodConfigModal 
-                        isOpen={showMoodConfig} 
-                        onClose={() => setShowMoodConfig(false)} 
-                        currentMoods={moodOptions} 
-                        onSave={handleSaveMoodOptions} 
-                    />
+                    <MoodConfigModal isOpen={showMoodConfig} onClose={() => setShowMoodConfig(false)} currentMoods={moodOptions} onSave={handleSaveMoodOptions} />
                     
-                    {/* Header */}
                     <div className="glass-strong rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
                             <h2 className="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Class Roster</h2>
                             <p className="text-slate-500 font-semibold text-sm mt-2">Select mood & mark attendance</p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
-                            <select 
-                                value={selectedClass} 
-                                onChange={e => setSelectedClass(e.target.value)}
-n                                className="w-full sm:w-auto p-4 glass-select rounded-2xl font-bold text-slate-700 text-lg appearance-none cursor-pointer min-w-[220px]"
-                            >
+                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}
+                                className="w-full sm:w-auto p-4 glass-select rounded-2xl font-bold text-slate-700 text-lg appearance-none cursor-pointer min-w-[220px]">
                                 <option value="">-- Select Class --</option>
                                 {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
-                            
                             {selectedClass && currentStudents.length > 0 && (
                                 <>
                                     <button onClick={markAllPresent}
@@ -610,66 +486,36 @@ n                                className="w-full sm:w-auto p-4 glass-select ro
 
                     {selectedClass && currentStudents.length > 0 && (
                         <div className="animate-fade-in relative">
-                            {/* Student Grid - wider cards for full names */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
                                 {currentStudents.map(student => {
                                     const status = attendance[student.id];
                                     const isMenuOpen = openMoodMenuId === student.id;
-                                    
                                     let cardClass = "glass-card";
                                     let statusLabel = "Tap to Mark";
                                     let statusBg = "bg-slate-200/60 text-slate-500";
-                                    
-                                    if (status === 'P') {
-                                        cardClass = "glass-card card-present";
-                                        statusLabel = "Present";
-                                        statusBg = "bg-green-500 text-white";
-                                    } else if (status === 'L') {
-                                        cardClass = "glass-card card-late";
-                                        statusLabel = "Late";
-                                        statusBg = "bg-amber-500 text-white";
-                                    } else if (status === 'A') {
-                                        cardClass = "glass-card card-absent";
-                                        statusLabel = "Absent";
-                                        statusBg = "bg-red-500 text-white";
-                                    }
-
+                                    if (status === 'P') { cardClass = "glass-card card-present"; statusLabel = "Present"; statusBg = "bg-green-500 text-white"; }
+                                    else if (status === 'L') { cardClass = "glass-card card-late"; statusLabel = "Late"; statusBg = "bg-amber-500 text-white"; }
+                                    else if (status === 'A') { cardClass = "glass-card card-absent"; statusLabel = "Absent"; statusBg = "bg-red-500 text-white"; }
                                     return (
-                                        <div key={student.id}
-                                            onClick={() => cycleStudent(student.id)}
+                                        <div key={student.id} onClick={() => cycleStudent(student.id)}
                                             className={`relative flex flex-col items-center justify-between p-5 rounded-3xl min-h-[200px] cursor-pointer select-none ${cardClass} ${isMenuOpen ? 'z-50' : 'z-10'}`}>
-                                            
-                                            {/* Top shine */}
                                             <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/50 to-transparent rounded-t-3xl pointer-events-none"></div>
-                                            
-                                            {/* Mood Picker */}
                                             <div className="mt-2">
-                                                <RadialMoodPicker 
-                                                    currentMood={moods[student.id]}
-n                                                    isOpen={isMenuOpen}
+                                                <RadialMoodPicker currentMood={moods[student.id]} isOpen={isMenuOpen}
                                                     onToggle={() => setOpenMoodMenuId(isMenuOpen ? null : student.id)}
-                                                    onSelect={(emoji) => handleMoodSelect(student.id, emoji)}
-                                                    moodOptions={moodOptions}
-                                                />
+                                                    onSelect={(emoji) => handleMoodSelect(student.id, emoji)} moodOptions={moodOptions} />
                                             </div>
-
-                                            {/* Full Name Display */}
                                             <div className="flex-1 flex items-center justify-center w-full px-1 my-3">
                                                 <span className="student-name">{student.displayName}</span>
                                             </div>
-                                            
-                                            {/* Status Badge */}
                                             <div className="mb-1">
-                                                <span className={`status-badge ${statusBg} shadow-sm`}>
-                                                    {statusLabel}
-                                                </span>
+                                                <span className={`status-badge ${statusBg} shadow-sm`}>{statusLabel}</span>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
 
-                            {/* Fixed Bottom Bar */}
                             <div className="fixed bottom-0 left-0 right-0 p-4 md:p-5 bottom-bar z-[60] flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="font-bold text-base">
                                     {missingCount > 0 ? (
@@ -687,8 +533,8 @@ n                                                    isOpen={isMenuOpen}
                                 <div className="flex gap-3 w-full sm:w-auto">
                                     {missingCount > 0 && (
                                         <button onClick={markRemainingAbsent}
-n                                            className="flex-1 sm:flex-none glass px-5 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-white/90 btn-press text-slate-700 border border-red-200/50">
-n                                            Mark Unmarked Absent
+                                            className="flex-1 sm:flex-none glass px-5 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-white/90 btn-press text-slate-700 border border-red-200/50">
+                                            Mark Unmarked Absent
                                         </button>
                                     )}
                                     <button onClick={handleSubmit}
@@ -698,7 +544,7 @@ n                                            Mark Unmarked Absent
                                     </button>
                                 </div>
                             </div>
-                            <div className="h-28"></div> 
+                            <div className="h-28"></div>
                         </div>
                     )}
                     
@@ -711,7 +557,6 @@ n                                            Mark Unmarked Absent
             );
         }
 
-        // --- ATTENDANCE HISTORY ---
         function AttendanceHistory({ userEmail }) {
             const [logs, setLogs] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -719,13 +564,10 @@ n                                            Mark Unmarked Absent
 
             useEffect(() => {
                 const { db, collection, query, where, onSnapshot, appId } = window.FirebaseDB;
-                const q = query(
-                    collection(db, 'artifacts', appId, 'public', 'data', 'attendance'),
-                    where("teacherEmail", "==", userEmail)
-                );
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'), where("teacherEmail", "==", userEmail));
                 const unsubscribe = onSnapshot(q, (snapshot) => {
                     const list = [];
-n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
                     list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                     setLogs(list);
                     setLoading(false);
@@ -761,7 +603,7 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
             
             const getStudentMatrix = () => {
                 const sortedLogs = getChronologicalLogs();
-                const studentMap = {}; 
+                const studentMap = {};
                 sortedLogs.forEach((log, logIndex) => {
                     log.records?.forEach(rec => {
                         const studentName = rec.studentName || 'Unknown';
@@ -778,14 +620,14 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                 const headers = ["Student Name", "Class"];
                 sortedLogs.forEach(log => {
                     const d = log.timestamp ? new Date(log.timestamp.seconds * 1000) : null;
-                    headers.push(`"${d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : ''}"`);
+                    headers.push('"' + (d ? String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') : '') + '"');
                 });
-                const rows = students.map(name => [`"${name.replace(/"/g,'""')}"`, `"${selectedClass||'Mixed'}"`, ...studentMap[name]].join(','));
+                const rows = students.map(name => ['"' + name.replace(/"/g,'""') + '"', '"' + (selectedClass||'Mixed') + '"', ...studentMap[name]].join(','));
                 const csv = [headers.join(','), ...rows].join('\n');
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(blob);
-                link.download = `SCIS_Attendance_${selectedClass||'All'}_${new Date().toISOString().split('T')[0]}.csv`;
+                link.download = 'SCIS_Attendance_' + (selectedClass||'All') + '_' + new Date().toISOString().split('T')[0] + '.csv';
                 link.click();
             };
 
@@ -844,9 +686,9 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                                                         <div key={mood} className="flex flex-col items-center flex-1 transition-all hover:scale-105">
                                                             <div className="font-bold text-sm text-slate-600 mb-2">{count}</div>
                                                             <div className="w-full max-w-[50px] bg-slate-200/60 rounded-t-xl h-full flex items-end relative overflow-hidden">
-                                                                <div className="w-full bg-gradient-to-t from-blue-400 to-indigo-400 rounded-t-xl transition-all duration-700" style={{ height: `${minHeight}%` }}></div>
+                                                                <div className="w-full bg-gradient-to-t from-blue-400 to-indigo-400 rounded-t-xl transition-all duration-700" style={{ height: minHeight + '%' }}></div>
                                                             </div>
-                                                            <div className="mt-3 text-3xl transition-transform" style={{ transform: `scale(${scale})` }}>{mood}</div>
+                                                            <div className="mt-3 text-3xl transition-transform" style={{ transform: 'scale(' + scale + ')' }}>{mood}</div>
                                                         </div>
                                                     );
                                                 })}
@@ -914,7 +756,7 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                                                             if (status==='A') cls = "bg-red-100 text-red-700 border-red-200";
                                                             return (
                                                                 <td key={i} className="p-2 text-center border-r border-slate-50">
-                                                                    <div className={`w-9 h-9 mx-auto flex items-center justify-center rounded-lg font-bold text-sm border ${cls}`}>{status}</div>
+                                                                    <div className={'w-9 h-9 mx-auto flex items-center justify-center rounded-lg font-bold text-sm border ' + cls}>{status}</div>
                                                                 </td>
                                                             );
                                                         })}
@@ -931,7 +773,6 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
             );
         }
 
-        // --- MAIN APP ---
         function App() {
             if (!window.FirebaseDB) return (
                 <div className="flex h-screen items-center justify-center">
@@ -975,12 +816,7 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                     snapshot.forEach(doc => {
                         let docData = doc.data();
                         let formattedGrade = (docData.grade || '').replace(/s1/gi, 'sA').replace(/s2/gi, 'sB');
-                        list.push({ 
-                            id: doc.id, 
-                            ...docData, 
-                            grade: formattedGrade, 
-                            displayName: formatName(docData.name || '') 
-                        });
+                        list.push({ id: doc.id, ...docData, grade: formattedGrade, displayName: formatName(docData.name || '') });
                     });
                     list.sort((a,b) => a.displayName.localeCompare(b.displayName));
                     setStudents(list);
@@ -1016,11 +852,8 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                         <div className="blob blob-1"></div>
                         <div className="blob blob-2"></div>
                         <div className="blob blob-3"></div>
-                        
                         <div className="glass-strong p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full relative z-10">
-                            <div className="w-24 h-24 mx-auto mb-6 rounded-[2rem] glass flex items-center justify-center text-5xl shadow-lg border border-white/50">
-                                📝
-                            </div>
+                            <div className="w-24 h-24 mx-auto mb-6 rounded-[2rem] glass flex items-center justify-center text-5xl shadow-lg border border-white/50">📝</div>
                             <h2 className="text-3xl font-bold text-slate-800 tracking-tight mb-2">SCIS Kiosk</h2>
                             <p className="text-slate-500 font-semibold text-sm mb-10">Touch-screen Attendance Portal</p>
                             <button onClick={handleLogin} 
@@ -1041,7 +874,6 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                     <div className="blob blob-1"></div>
                     <div className="blob blob-2"></div>
                     <div className="blob blob-3"></div>
-                    
                     <nav className="glass-strong border-b border-white/60 px-4 md:px-8 py-4 sticky top-0 z-40 shadow-sm">
                         <div className="max-w-7xl mx-auto flex justify-between items-center">
                             <div className="flex items-center gap-4">
@@ -1051,15 +883,14 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                                     <h1 className="text-xl font-bold text-slate-800 tracking-tight sm:hidden">Kiosk</h1>
                                 </div>
                             </div>
-                            
                             <div className="flex items-center gap-3">
                                 <div className="flex glass p-1.5 rounded-2xl shadow-sm">
                                     <button onClick={() => setCurrentTab('take')} 
-                                        className={`px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${currentTab==='take'?'bg-blue-600 text-white shadow-md':'text-slate-600 hover:text-slate-800 hover:bg-white/50'}`}>
+                                        className={'px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ' + (currentTab==='take'?'bg-blue-600 text-white shadow-md':'text-slate-600 hover:text-slate-800 hover:bg-white/50')}>
                                         Take
                                     </button>
                                     <button onClick={() => setCurrentTab('history')} 
-                                        className={`px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${currentTab==='history'?'bg-blue-600 text-white shadow-md':'text-slate-600 hover:text-slate-800 hover:bg-white/50'}`}>
+                                        className={'px-5 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ' + (currentTab==='history'?'bg-blue-600 text-white shadow-md':'text-slate-600 hover:text-slate-800 hover:bg-white/50')}>
                                         Log
                                     </button>
                                 </div>
@@ -1072,7 +903,6 @@ n                    snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data
                             </div>
                         </div>
                     </nav>
-
                     <main className="pt-6 sm:pt-8 relative z-10">
                         {currentTab === 'take' ? <AttendanceTaker userEmail={userEmail} students={students} /> : <AttendanceHistory userEmail={userEmail} />}
                     </main>
