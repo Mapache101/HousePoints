@@ -58,7 +58,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyDyFV6WAZhpr4leljJOQozPzEWlNaU-heQ",
@@ -75,16 +75,16 @@
             const db = getFirestore(app);
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'scis-house-points';
 
-            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
+            window.FirebaseDB = { auth, db, collection, addDoc, onSnapshot, query, orderBy, Timestamp, deleteDoc, doc, setDoc, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithPopup, OAuthProvider, signOut, appId };
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
         }
     </script>
 
     <script type="text/babel" data-type="module">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // Custom Icon Component to avoid relying on lucide-react which might have issues with babel standalone
+        // Custom Icon Component
         const Icon = ({ name, className }) => {
             const icons = {
                 Users: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
@@ -100,13 +100,12 @@
                 FileText: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
                 ChevronRight: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>,
                 AlertCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
-                Home: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
                 LogOut: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             };
             return icons[name] || null;
         };
 
-        // --- Data and Logic from App.jsx ---
+        // --- Data ---
         const rawStudentsData = [
           { n: 1, code: 2344, name: "Aguirre Rodriguez: Fernando", spanish: 68, english: 67, socStu: 57, phyEdu: 100, music: 80, art: 96, math: 59, computer: 76, genSci: 61, gloPer: 52 },
           { n: 2, code: 2307, name: "Amorim Costa Beber: Lorenzo", spanish: 63, english: 60, socStu: 59, phyEdu: 100, music: 87, art: 95, math: 62, computer: 99, genSci: 52, gloPer: 61 },
@@ -140,13 +139,13 @@
         const subjectsInfo = [
           { key: 'spanish', label: 'Spanish' },
           { key: 'english', label: 'English' },
-          { key: 'socStu', label: 'Social Studies' },
+          { key: 'socStu', label: 'Soc. Stu.' }, // Shortened for mobile
           { key: 'phyEdu', label: 'Phy. Edu.' },
           { key: 'music', label: 'Music' },
           { key: 'art', label: 'Art' },
-          { key: 'math', label: 'Mathematics' },
+          { key: 'math', label: 'Math' },
           { key: 'computer', label: 'Computer' },
-          { key: 'genSci', label: 'General Science' },
+          { key: 'genSci', label: 'Gen. Sci.' },
           { key: 'gloPer', label: 'Glo. Per.' }
         ];
 
@@ -188,14 +187,14 @@
 
         const identifyCategoryType = (categoryName) => {
           const lowerCat = categoryName.toLowerCase();
-          if (lowerCat.includes('saber') || lowerCat.includes('to know')) return 'Saber (Tests/Knowledge)';
-          if (lowerCat.includes('hacer') || lowerCat.includes('to do')) return 'Hacer (Classwork/Tasks)';
-          if (lowerCat.includes('ser') || lowerCat.includes('to be')) return 'Ser (Behavior/Responsibility)';
-          if (lowerCat.includes('eval') || lowerCat.includes('decidir')) return 'Autoevaluación/Decidir';
-          return 'Other/Ungraded';
+          if (lowerCat.includes('saber') || lowerCat.includes('to know')) return 'Saber (Tests)';
+          if (lowerCat.includes('hacer') || lowerCat.includes('to do')) return 'Hacer (Classwork)';
+          if (lowerCat.includes('ser') || lowerCat.includes('to be')) return 'Ser (Behavior)';
+          if (lowerCat.includes('eval') || lowerCat.includes('decidir')) return 'Autoevaluación';
+          return 'Other';
         };
 
-        const processGradebook = (filename, csvText) => {
+        const processGradebookData = (csvText) => {
           const rows = parseCSV(csvText);
           if (rows.length < 2) return null;
 
@@ -228,7 +227,7 @@
                   index, 
                   name: h, 
                   category: "Other",
-                  type: "Other/Ungraded"
+                  type: "Other"
                 });
               }
             }
@@ -268,17 +267,7 @@
             studentData[uid] = record;
           }
 
-          const lowerName = filename.toLowerCase();
-          let subjectKey = null;
-          if (lowerName.includes('math')) subjectKey = 'math';
-          else if (lowerName.includes('english')) subjectKey = 'english';
-          else if (lowerName.includes('science')) subjectKey = 'genSci';
-          else if (lowerName.includes('social')) subjectKey = 'socStu';
-          else if (lowerName.includes('spanish')) subjectKey = 'spanish';
-          else if (lowerName.includes('music')) subjectKey = 'music';
-          else if (lowerName.includes('art')) subjectKey = 'art';
-
-          return { subjectKey, studentData };
+          return studentData;
         };
 
         // --- Main GradeAnalyzer Component ---
@@ -286,25 +275,89 @@
           const [searchTerm, setSearchTerm] = useState('');
           const [sortConfig, setSortConfig] = useState({ key: 'average', direction: 'descending' });
           const [selectedStudent, setSelectedStudent] = useState(null);
+          
+          // Gradebooks State
           const [gradebooks, setGradebooks] = useState({});
           const [expandedSubject, setExpandedSubject] = useState(null);
+          const [pendingUploads, setPendingUploads] = useState([]); // [{file, data}]
+          const fileInputRef = useRef(null);
 
-          const handleFileUpload = (event) => {
+          // Load gradebooks from Firebase on mount
+          useEffect(() => {
+              const { db, collection, query, onSnapshot, appId } = window.FirebaseDB;
+              const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'gradebooks'));
+              
+              const unsubscribe = onSnapshot(q, (snapshot) => {
+                  const loadedGradebooks = {};
+                  snapshot.forEach(doc => {
+                      loadedGradebooks[doc.id] = doc.data().studentData;
+                  });
+                  setGradebooks(loadedGradebooks);
+              });
+
+              return () => unsubscribe();
+          }, []);
+
+          const handleFileSelect = (event) => {
             const files = event.target.files;
+            const newPending = [];
+            
             Array.from(files).forEach(file => {
               const reader = new FileReader();
               reader.onload = (e) => {
                 const text = e.target.result;
-                const result = processGradebook(file.name, text);
-                if (result && result.subjectKey) {
-                  setGradebooks(prev => ({
-                    ...prev,
-                    [result.subjectKey]: result.studentData
-                  }));
+                const studentData = processGradebookData(text);
+                
+                // Try to guess the subject
+                const lowerName = file.name.toLowerCase();
+                let guessedSubject = '';
+                if (lowerName.includes('math')) guessedSubject = 'math';
+                else if (lowerName.includes('english')) guessedSubject = 'english';
+                else if (lowerName.includes('science')) guessedSubject = 'genSci';
+                else if (lowerName.includes('social')) guessedSubject = 'socStu';
+                else if (lowerName.includes('spanish')) guessedSubject = 'spanish';
+                else if (lowerName.includes('music')) guessedSubject = 'music';
+                else if (lowerName.includes('art')) guessedSubject = 'art';
+
+                if (studentData) {
+                   setPendingUploads(prev => [...prev, { filename: file.name, data: studentData, subjectKey: guessedSubject }]);
                 }
               };
               reader.readAsText(file);
             });
+            // Reset input
+            if(fileInputRef.current) fileInputRef.current.value = '';
+          };
+
+          const handleConfirmUpload = async (index, subjectKey) => {
+              if(!subjectKey) return alert("Please select a subject.");
+              
+              const upload = pendingUploads[index];
+              const { db, doc, setDoc, appId } = window.FirebaseDB;
+
+              try {
+                  // Save to Firebase
+                  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gradebooks', subjectKey), {
+                      studentData: upload.data,
+                      updatedAt: new Date().toISOString()
+                  });
+                  
+                  // Remove from pending
+                  setPendingUploads(prev => prev.filter((_, i) => i !== index));
+              } catch (error) {
+                  console.error("Error saving gradebook:", error);
+                  alert("Failed to save gradebook to database.");
+              }
+          };
+          
+          const handleCancelUpload = (index) => {
+              setPendingUploads(prev => prev.filter((_, i) => i !== index));
+          };
+
+          const updatePendingSubject = (index, value) => {
+             const newPending = [...pendingUploads];
+             newPending[index].subjectKey = value;
+             setPendingUploads(newPending);
           };
 
           const processedData = useMemo(() => {
@@ -326,19 +379,10 @@
               if (student.average < lowest.average) lowest = student;
             });
 
-            const distribution = processedData.reduce((acc, student) => {
-              if (student.average >= 90) acc.excellent++;
-              else if (student.average >= 80) acc.good++;
-              else if (student.average >= 70) acc.fair++;
-              else acc.poor++;
-              return acc;
-            }, { excellent: 0, good: 0, fair: 0, poor: 0 });
-
             return {
               classAverage: (sumAverage / processedData.length).toFixed(1),
               highest,
-              lowest,
-              distribution
+              lowest
             };
           }, [processedData]);
 
@@ -375,10 +419,10 @@
 
           const getGradeColor = (grade, isBadge = false) => {
             if (grade === undefined || grade === null || isNaN(grade)) return 'text-slate-400';
-            if (grade >= 90) return isBadge ? 'bg-emerald-100 text-emerald-800' : 'text-emerald-700 font-medium';
-            if (grade >= 80) return isBadge ? 'bg-blue-100 text-blue-800' : 'text-blue-700 font-medium';
-            if (grade >= 70) return isBadge ? 'bg-amber-100 text-amber-800' : 'text-amber-700 font-medium';
-            return isBadge ? 'bg-red-100 text-red-800' : 'text-red-600 font-medium';
+            if (grade >= 90) return isBadge ? 'bg-emerald-100 text-emerald-800' : 'text-emerald-600 font-bold';
+            if (grade >= 80) return isBadge ? 'bg-blue-100 text-blue-800' : 'text-blue-600 font-bold';
+            if (grade >= 70) return isBadge ? 'bg-amber-100 text-amber-800' : 'text-amber-600 font-bold';
+            return isBadge ? 'bg-red-100 text-red-800' : 'text-red-600 font-bold';
           };
 
           const getCategoryColor = (type) => {
@@ -389,81 +433,110 @@
           };
 
           return (
-            <div className="bg-slate-50 text-slate-800 font-sans w-full min-h-[calc(100vh-64px)] flex flex-col p-4 md:p-8 animate-fade-in">
-              <div className="max-w-7xl mx-auto w-full space-y-6">
+            <div className="bg-slate-50 text-slate-800 font-sans w-full min-h-[calc(100vh-64px)] flex flex-col p-2 md:p-6 lg:p-8 animate-fade-in relative">
+              <div className="max-w-7xl mx-auto w-full space-y-4 md:space-y-6">
                 
                 {/* Header */}
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-slate-200">
-                  <div className="flex items-center gap-4">
-                     <div>
-                       <h1 className="text-3xl font-display font-black text-scis-navy tracking-tight uppercase">Grade Analysis Dashboard</h1>
-                       <p className="text-slate-500 mt-1 font-medium">Class of 2026 • Teacher: Daniel Olguin</p>
-                     </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-display font-black text-scis-navy tracking-tight uppercase">Grade Analysis</h1>
+                    <p className="text-slate-500 mt-1 font-medium text-sm md:text-base">Class of 2026 • Teacher: Daniel Olguin</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg border border-blue-200 cursor-pointer transition-colors shadow-sm btn-press">
+                  <div className="flex items-center justify-between w-full md:w-auto gap-3">
+                    <label className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2.5 rounded-xl border border-blue-200 cursor-pointer transition-colors shadow-sm btn-press">
                       <Icon name="Upload" className="w-5 h-5" />
-                      <span className="font-semibold text-sm">Import Gradebooks</span>
-                      <input type="file" multiple accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      <span className="font-bold text-sm">Import CSV</span>
+                      <input type="file" multiple accept=".csv" onChange={handleFileSelect} className="hidden" ref={fileInputRef} />
                     </label>
-                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm">
                       <Icon name="Users" className="w-5 h-5 text-slate-400" />
-                      <span className="font-semibold text-slate-700">{processedData.length}</span>
-                      <span className="text-slate-500 text-sm">Total Students</span>
+                      <span className="font-bold text-slate-700">{processedData.length}</span>
                     </div>
                   </div>
                 </header>
 
+                {/* Pending Uploads Modal */}
+                {pendingUploads.length > 0 && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-scis-navy/40 backdrop-blur-sm">
+                        <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl animate-slide-up">
+                            <h3 className="font-display font-black text-xl text-scis-navy mb-4">Confirm Gradebook Subjects</h3>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                                {pendingUploads.map((upload, idx) => (
+                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                        <p className="text-sm font-bold text-slate-700 mb-2 truncate" title={upload.filename}>{upload.filename}</p>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <select 
+                                                className="flex-1 p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-scis-navy font-medium"
+                                                value={upload.subjectKey}
+                                                onChange={(e) => updatePendingSubject(idx, e.target.value)}
+                                            >
+                                                <option value="">-- Select Subject --</option>
+                                                {subjectsInfo.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                                            </select>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleConfirmUpload(idx, upload.subjectKey)} disabled={!upload.subjectKey} className="px-3 py-2 bg-scis-navy text-white rounded-lg text-sm font-bold disabled:opacity-50 btn-press">Save</button>
+                                                <button onClick={() => handleCancelUpload(idx)} className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-100 btn-press">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Top Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-start gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  <div className="col-span-2 md:col-span-1 bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm flex items-center md:items-start gap-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl hidden sm:block">
                       <Icon name="BarChart3" className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1 uppercase tracking-wider">Class Overall Average</p>
-                      <p className="text-3xl font-black text-scis-navy">{stats.classAverage}</p>
+                      <p className="text-[10px] md:text-xs font-black text-slate-400 mb-0.5 md:mb-1 uppercase tracking-widest">Class Average</p>
+                      <p className="text-2xl md:text-3xl font-black text-scis-navy">{stats.classAverage}</p>
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-start gap-4">
-                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                      <Icon name="Award" className="w-6 h-6" />
+                  <div className="bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-emerald-50 text-emerald-600 rounded-xl hidden lg:block">
+                      <Icon name="Award" className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1 uppercase tracking-wider">Highest Average</p>
-                      <p className="text-xl font-black text-scis-navy">{stats.highest.average.toFixed(1)}</p>
-                      <p className="text-sm text-slate-500 truncate w-48 font-medium" title={stats.highest.name}>
-                        {stats.highest.name.split(':')[0]}
-                      </p>
+                      <p className="text-[10px] md:text-xs font-black text-slate-400 mb-0.5 md:mb-1 uppercase tracking-widest">Highest Avg.</p>
+                      <div className="flex flex-col">
+                        <span className="text-xl md:text-2xl font-black text-scis-navy leading-none">{stats.highest.average.toFixed(1)}</span>
+                        <span className="text-xs text-slate-500 truncate w-full max-w-[120px] md:max-w-[150px] font-medium mt-1" title={stats.highest.name}>
+                          {stats.highest.name.split(':')[0]}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-start gap-4">
-                    <div className="p-3 bg-red-50 text-red-600 rounded-xl">
-                      <Icon name="TrendingDown" className="w-6 h-6" />
+                  <div className="bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-red-50 text-red-600 rounded-xl hidden lg:block">
+                      <Icon name="TrendingDown" className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1 uppercase tracking-wider">Lowest Average</p>
-                      <p className="text-xl font-black text-scis-navy">{stats.lowest.average.toFixed(1)}</p>
-                      <p className="text-sm text-slate-500 truncate w-48 font-medium" title={stats.lowest.name}>
-                        {stats.lowest.name.split(':')[0]}
-                      </p>
+                      <p className="text-[10px] md:text-xs font-black text-slate-400 mb-0.5 md:mb-1 uppercase tracking-widest">Lowest Avg.</p>
+                      <div className="flex flex-col">
+                         <span className="text-xl md:text-2xl font-black text-scis-navy leading-none">{stats.lowest.average.toFixed(1)}</span>
+                         <span className="text-xs text-slate-400 italic mt-1 font-medium">Name Hidden</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Data Table Section */}
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                  <div className="p-4 md:p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
-                    <h2 className="text-xl font-display font-black text-scis-navy uppercase tracking-tight">Student Detail Records</h2>
+                <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                  <div className="p-3 md:p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-50/50">
+                    <h2 className="text-lg md:text-xl font-display font-black text-scis-navy uppercase tracking-tight">Records</h2>
                     <div className="relative w-full md:w-72">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Icon name="Search" className="h-4 w-4 text-slate-400" />
                       </div>
                       <input
                         type="text"
-                        placeholder="Search by name or code..."
+                        placeholder="Search by name..."
                         className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-scis-navy focus:border-transparent text-sm transition-shadow font-medium"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -471,28 +544,31 @@
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left whitespace-nowrap">
-                      <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-xs">
+                  {/* Responsive Table Wrapper */}
+                  <div className="overflow-x-auto w-full">
+                    {/* Fixed layout for desktop, auto for mobile to allow horizontal scroll without squishing */}
+                    <table className="w-full text-sm text-left whitespace-nowrap md:table-fixed">
+                      <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] md:text-xs border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => requestSort('code')}>
-                            <div className="flex items-center gap-1">Code {sortConfig.key === 'code' && (sortConfig.direction === 'ascending' ? <Icon name="ChevronUp" className="w-3 h-3"/> : <Icon name="ChevronDown" className="w-3 h-3"/>)}</div>
+                          {/* Name column takes up more space on desktop */}
+                          <th className="px-3 md:px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors w-[150px] md:w-[200px]" onClick={() => requestSort('name')}>
+                            <div className="flex items-center gap-1 truncate">Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <Icon name="ChevronUp" className="w-3 h-3"/> : <Icon name="ChevronDown" className="w-3 h-3"/>)}</div>
                           </th>
-                          <th className="px-4 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => requestSort('name')}>
-                            <div className="flex items-center gap-1">Student Name {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <Icon name="ChevronUp" className="w-3 h-3"/> : <Icon name="ChevronDown" className="w-3 h-3"/>)}</div>
-                          </th>
+                          
+                          {/* Subject Columns - Uniform width on desktop */}
                           {subjectsInfo.map(sub => (
-                            <th key={sub.key} className="px-4 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => requestSort(sub.key)}>
-                              <div className="flex items-center gap-1">
-                                {sub.label} 
-                                {sortConfig.key === sub.key && (sortConfig.direction === 'ascending' ? <Icon name="ChevronUp" className="w-3 h-3"/> : <Icon name="ChevronDown" className="w-3 h-3"/>)}
+                            <th key={sub.key} className="px-2 md:px-3 py-3 cursor-pointer hover:bg-slate-200 transition-colors text-center w-[60px] md:w-[80px]" onClick={() => requestSort(sub.key)}>
+                              <div className="flex items-center justify-center gap-0.5 truncate flex-col sm:flex-row">
+                                <span className="truncate">{sub.label}</span>
+                                {gradebooks[sub.key] && <Icon name="FileText" className="w-2.5 h-2.5 text-blue-500 hidden md:inline-block" title="Gradebook uploaded" />}
                               </div>
                             </th>
                           ))}
-                          <th className="px-4 py-4 cursor-pointer hover:bg-slate-200 transition-colors bg-slate-200/50 border-l border-slate-300" onClick={() => requestSort('average')}>
+                          
+                          {/* Average Column */}
+                          <th className="px-3 md:px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors bg-slate-200/50 border-l border-slate-300 w-[60px] md:w-[80px]" onClick={() => requestSort('average')}>
                             <div className="flex items-center justify-end gap-1">
                               Avg
-                              {sortConfig.key === 'average' && (sortConfig.direction === 'ascending' ? <Icon name="ChevronUp" className="w-3 h-3"/> : <Icon name="ChevronDown" className="w-3 h-3"/>)}
                             </div>
                           </th>
                         </tr>
@@ -501,23 +577,24 @@
                         {filteredAndSortedData.map((student) => (
                           <tr 
                             key={student.code} 
-                            className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                            className="hover:bg-blue-50/80 cursor-pointer transition-colors group"
                             onClick={() => setSelectedStudent(student)}
-                            title="Click to view full analysis"
                           >
-                            <td className="px-4 py-3 font-mono text-slate-500 font-medium">{student.code}</td>
-                            <td className="px-4 py-3 font-bold text-scis-navy group-hover:text-blue-700 transition-colors">{student.name}</td>
+                            <td className="px-3 md:px-4 py-2.5 md:py-3">
+                               <div className="font-bold text-scis-navy group-hover:text-blue-700 transition-colors truncate w-full text-xs md:text-sm">{student.name}</div>
+                               <div className="text-[9px] md:text-xs text-slate-400 font-mono mt-0.5">{student.code}</div>
+                            </td>
                             
                             {subjectsInfo.map(sub => (
-                              <td key={sub.key} className="px-4 py-3">
-                                <span className={getGradeColor(student[sub.key])}>
+                              <td key={sub.key} className="px-2 md:px-3 py-2.5 md:py-3 text-center">
+                                <span className={`text-xs md:text-sm ${getGradeColor(student[sub.key])}`}>
                                   {student[sub.key]}
                                 </span>
                               </td>
                             ))}
                             
-                            <td className="px-4 py-3 text-right border-l border-slate-100 bg-slate-50/50">
-                              <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-black shadow-sm ${getGradeColor(student.average, true)}`}>
+                            <td className="px-3 md:px-4 py-2.5 md:py-3 text-right border-l border-slate-100 bg-slate-50/50">
+                              <span className={`inline-flex items-center justify-center px-1.5 md:px-2.5 py-0.5 md:py-1 rounded text-[10px] md:text-xs font-black shadow-sm ${getGradeColor(student.average, true)}`}>
                                 {student.average.toFixed(1)}
                               </span>
                             </td>
@@ -531,30 +608,37 @@
                 {/* Student Analysis Modal */}
                 {selectedStudent && (
                   <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scis-navy/40 backdrop-blur-sm animate-fade-in" 
+                    className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-scis-navy/60 backdrop-blur-sm animate-fade-in" 
                     onClick={() => { setSelectedStudent(null); setExpandedSubject(null); }}
                   >
                     <div 
-                      className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col animate-slide-up" 
+                      className="bg-slate-50 md:rounded-3xl w-full max-w-4xl h-[85vh] md:h-auto md:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-slide-up rounded-t-3xl" 
                       onClick={e => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-10">
-                        <div>
-                          <h2 className="text-2xl font-display font-black text-scis-navy uppercase tracking-tight">{selectedStudent.name}</h2>
-                          <p className="text-slate-500 mt-1 font-medium">Code: {selectedStudent.code} • Overall Average: <span className={`font-black ml-1 px-2 py-0.5 rounded shadow-sm ${getGradeColor(selectedStudent.average, true)}`}>{selectedStudent.average.toFixed(1)}</span></p>
+                      {/* Modal Header */}
+                      <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-200 bg-white z-10 shrink-0">
+                        <div className="pr-4">
+                          <h2 className="text-xl md:text-2xl font-display font-black text-scis-navy uppercase tracking-tight leading-tight">{selectedStudent.name}</h2>
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5 md:mt-2">
+                             <span className="text-[10px] md:text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{selectedStudent.code}</span>
+                             <span className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                Overall: <span className={`px-1.5 py-0.5 rounded shadow-sm ${getGradeColor(selectedStudent.average, true)}`}>{selectedStudent.average.toFixed(1)}</span>
+                             </span>
+                          </div>
                         </div>
                         <button 
                           onClick={() => { setSelectedStudent(null); setExpandedSubject(null); }} 
-                          className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-500 transition-colors font-bold"
+                          className="w-8 h-8 md:w-10 md:h-10 shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-500 transition-colors"
                         >
                           <Icon name="X" className="w-5 h-5" />
                         </button>
                       </div>
                       
-                      <div className="p-6 space-y-6 bg-slate-50/30">
-                        <div>
-                          <h3 className="text-xl font-display font-black text-scis-navy mb-1 uppercase tracking-tight">Subject Breakdown & Deficiencies</h3>
-                          <p className="text-sm text-slate-500 font-medium">Click on subjects with uploaded gradebooks (marked with a document icon) to view the origin of the grades and specific deficiencies.</p>
+                      {/* Modal Body (Scrollable) */}
+                      <div className="p-4 md:p-6 overflow-y-auto flex-1 pb-20 md:pb-6">
+                        <div className="mb-4">
+                          <h3 className="text-lg md:text-xl font-display font-black text-scis-navy uppercase tracking-tight">Subject Breakdown</h3>
+                          <p className="text-[10px] md:text-xs text-slate-500 font-medium mt-1">Tap a subject with a <Icon name="FileText" className="w-3 h-3 inline text-slate-400 mx-0.5"/> icon to view detailed assignments.</p>
                         </div>
 
                         <div className="space-y-3">
@@ -566,31 +650,48 @@
                             const isExpanded = expandedSubject === sub.key;
 
                             return (
-                              <div key={sub.key} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                {/* Subject Row (Clickable if Gradebook exists) */}
+                              <div key={sub.key} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-shadow">
+                                {/* Subject Row */}
                                 <div 
-                                  className={`flex flex-col md:flex-row md:items-center gap-4 p-4 transition-colors ${hasGradebook ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                                  className={`flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 p-3 md:p-4 transition-colors ${hasGradebook ? 'cursor-pointer hover:bg-slate-50 active:bg-slate-100' : ''}`}
                                   onClick={() => hasGradebook && setExpandedSubject(isExpanded ? null : sub.key)}
                                 >
-                                  <div className="w-48 font-bold text-scis-navy flex items-center gap-2">
-                                    {hasGradebook ? (isExpanded ? <Icon name="ChevronDown" className="w-4 h-4 text-blue-500" /> : <Icon name="ChevronRight" className="w-4 h-4 text-blue-500" />) : <div className="w-4" />}
-                                    {sub.label}
-                                    {hasGradebook && <Icon name="FileText" className="w-4 h-4 text-slate-400" title="Detailed gradebook available" />}
+                                  {/* Subject Info Mobile Layout */}
+                                  <div className="flex justify-between items-center w-full lg:w-48">
+                                      <div className="font-bold text-sm md:text-base text-scis-navy flex items-center gap-1.5">
+                                        {hasGradebook ? (isExpanded ? <Icon name="ChevronDown" className="w-4 h-4 text-blue-500" /> : <Icon name="ChevronRight" className="w-4 h-4 text-blue-500" />) : <div className="w-4" />}
+                                        {sub.label}
+                                        {hasGradebook && <Icon name="FileText" className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />}
+                                      </div>
+                                      
+                                      {/* Mobile Score Display (Hidden on Desktop) */}
+                                      <div className="flex items-center gap-2 lg:hidden">
+                                        <span className={`font-black text-base ${getGradeColor(studentScore)}`}>{studentScore}</span>
+                                      </div>
                                   </div>
                                   
-                                  <div className="flex-1 relative h-6 bg-slate-100 rounded-full overflow-hidden flex items-center shadow-inner">
-                                    <div className="absolute top-0 bottom-0 w-0.5 bg-scis-navy z-10" style={{ left: `${classAvg}%` }} title={`Class Avg: ${classAvg.toFixed(1)}`} />
-                                    <div 
-                                      className={`h-full transition-all duration-700 ease-out ${
-                                        studentScore >= 90 ? 'bg-emerald-400' : studentScore >= 80 ? 'bg-blue-400' : studentScore >= 70 ? 'bg-amber-400' : 'bg-red-400'
-                                      }`}
-                                      style={{ width: `${studentScore}%` }}
-                                    />
+                                  {/* Progress Bar Area */}
+                                  <div className="flex-1 flex flex-col justify-center relative pt-2 lg:pt-0">
+                                      {/* Marker label mobile */}
+                                      <div className="absolute -top-1 left-0 w-full lg:hidden">
+                                        <div className="absolute text-[8px] font-bold text-scis-navy whitespace-nowrap -translate-x-1/2" style={{ left: `${classAvg}%` }}>Avg</div>
+                                      </div>
+
+                                      <div className="w-full relative h-4 md:h-6 bg-slate-100 rounded-full overflow-hidden flex items-center shadow-inner">
+                                        <div className="absolute top-0 bottom-0 w-0.5 md:w-1 bg-scis-navy/80 z-10" style={{ left: `${classAvg}%` }} title={`Class Avg: ${classAvg.toFixed(1)}`} />
+                                        <div 
+                                          className={`h-full transition-all duration-700 ease-out ${
+                                            studentScore >= 90 ? 'bg-emerald-400' : studentScore >= 80 ? 'bg-blue-400' : studentScore >= 70 ? 'bg-amber-400' : 'bg-red-400'
+                                          }`}
+                                          style={{ width: `${studentScore}%` }}
+                                        />
+                                      </div>
                                   </div>
                                   
-                                  <div className="w-32 flex items-center justify-between text-sm">
+                                  {/* Desktop Score Display (Hidden on Mobile) */}
+                                  <div className="w-28 hidden lg:flex items-center justify-between text-sm">
                                     <span className={`font-black text-lg ${getGradeColor(studentScore)}`}>{studentScore}</span>
-                                    <span className={`font-bold text-xs px-2 py-0.5 rounded-md border ${diff >= 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-red-700 bg-red-50 border-red-200'}`}>
+                                    <span className={`font-bold text-[10px] px-2 py-0.5 rounded border ${diff >= 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-red-700 bg-red-50 border-red-200'}`}>
                                       {diff > 0 ? '+' : ''}{diff.toFixed(1)}
                                     </span>
                                   </div>
@@ -598,58 +699,77 @@
 
                                 {/* Expandable Gradebook Details */}
                                 {hasGradebook && isExpanded && (
-                                  <div className="bg-slate-50 border-t border-slate-200 p-5 space-y-6">
+                                  <div className="bg-slate-50 border-t border-slate-200 p-3 md:p-5 space-y-4 md:space-y-6">
                                     
-                                    {/* Categories Overview mapped to SEDUCA */}
+                                    {/* Categories Overview */}
                                     {Object.keys(gradebooks[sub.key][selectedStudent.code].categories).length > 0 && (
                                       <div>
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Performance by Evaluation Type (SEDUCA)</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 mb-2 md:mb-3">SEDUCA Averages</h4>
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
                                           {Object.entries(gradebooks[sub.key][selectedStudent.code].categories).map(([cat, data]) => (
-                                            <div key={cat} className={`border rounded-xl p-3 text-center shadow-sm bg-white`}>
-                                              <div className={`text-[10px] font-black uppercase tracking-widest opacity-75 mb-1 px-2 py-0.5 rounded inline-block ${getCategoryColor(data.type)}`}>{data.type}</div>
-                                              <div className={`font-black text-2xl ${getGradeColor(data.score)}`}>{data.score.toFixed(1)}</div>
+                                            <div key={cat} className="border border-slate-200 rounded-xl p-2 md:p-3 text-center shadow-sm bg-white">
+                                              <div className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-75 mb-1 px-1.5 py-0.5 rounded inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full ${getCategoryColor(data.type)}`}>{data.type}</div>
+                                              <div className={`font-black text-lg md:text-xl ${getGradeColor(data.score)}`}>{data.score.toFixed(1)}</div>
                                             </div>
                                           ))}
                                         </div>
                                       </div>
                                     )}
 
-                                    {/* Individual Assignments & Deficiencies */}
+                                    {/* Assignments Log */}
                                     <div>
-                                       <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-                                          Assignments Log
-                                          <span className="font-semibold normal-case text-slate-400 tracking-normal">(Sorted lowest to highest)</span>
+                                       <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 mb-2 md:mb-3 flex items-center justify-between">
+                                          <span>Assignments</span>
+                                          <span className="font-semibold normal-case text-slate-400 tracking-normal hidden md:inline">(Sorted low to high)</span>
                                        </h4>
                                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                          <table className="w-full text-sm text-left">
-                                             <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-bold">
+                                          {/* Mobile Card View for assignments */}
+                                          <div className="block md:hidden divide-y divide-slate-100">
+                                              {gradebooks[sub.key][selectedStudent.code].assignments.map((assignment, idx) => (
+                                                <div key={idx} className={`p-3 flex justify-between items-start gap-2 ${assignment.score < 70 ? "bg-red-50/30" : ""}`}>
+                                                   <div className="flex-1 min-w-0">
+                                                      <p className="font-bold text-xs text-scis-navy leading-tight mb-1">{assignment.name}</p>
+                                                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border inline-block ${getCategoryColor(assignment.type)}`}>
+                                                          {assignment.type}
+                                                      </span>
+                                                   </div>
+                                                   <div className={`shrink-0 font-black text-lg flex items-center gap-1 ${getGradeColor(assignment.score)}`}>
+                                                      {assignment.score < 70 && <Icon name="AlertCircle" className="w-3.5 h-3.5 text-red-500" />}
+                                                      {assignment.score}
+                                                   </div>
+                                                </div>
+                                              ))}
+                                              {gradebooks[sub.key][selectedStudent.code].assignments.length === 0 && (
+                                                <div className="p-4 text-center text-xs text-slate-400 font-medium">No assignments found.</div>
+                                              )}
+                                          </div>
+
+                                          {/* Desktop Table View */}
+                                          <table className="w-full text-sm text-left hidden md:table">
+                                             <thead className="bg-slate-100 text-slate-600 text-[10px] uppercase tracking-wider font-bold">
                                                 <tr>
-                                                   <th className="px-4 py-3 border-b border-slate-200">Score</th>
-                                                   <th className="px-4 py-3 border-b border-slate-200">Assignment Name</th>
-                                                   <th className="px-4 py-3 border-b border-slate-200">Evaluation Area</th>
+                                                   <th className="px-4 py-2 border-b border-slate-200 w-24">Score</th>
+                                                   <th className="px-4 py-2 border-b border-slate-200">Assignment</th>
+                                                   <th className="px-4 py-2 border-b border-slate-200 w-48">Area</th>
                                                 </tr>
                                              </thead>
                                              <tbody className="divide-y divide-slate-100">
                                                 {gradebooks[sub.key][selectedStudent.code].assignments.map((assignment, idx) => (
                                                   <tr key={idx} className={assignment.score < 70 ? "bg-red-50/30" : "hover:bg-slate-50"}>
-                                                     <td className="px-4 py-3 whitespace-nowrap">
+                                                     <td className="px-4 py-2 whitespace-nowrap">
                                                        <span className={`inline-flex items-center gap-1 font-black ${getGradeColor(assignment.score)}`}>
                                                          {assignment.score < 70 && <Icon name="AlertCircle" className="w-4 h-4 text-red-500" />}
                                                          {assignment.score}
                                                        </span>
                                                      </td>
-                                                     <td className="px-4 py-3 font-semibold text-scis-navy">{assignment.name}</td>
-                                                     <td className="px-4 py-3">
-                                                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${getCategoryColor(assignment.type)}`}>
+                                                     <td className="px-4 py-2 font-semibold text-xs text-scis-navy">{assignment.name}</td>
+                                                     <td className="px-4 py-2">
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest border whitespace-nowrap ${getCategoryColor(assignment.type)}`}>
                                                             {assignment.type}
                                                         </span>
                                                      </td>
                                                   </tr>
                                                 ))}
-                                                {gradebooks[sub.key][selectedStudent.code].assignments.length === 0 && (
-                                                  <tr><td colSpan="3" className="px-4 py-6 text-center text-slate-400 font-medium">No specific assignment records found.</td></tr>
-                                                )}
                                              </tbody>
                                           </table>
                                        </div>
@@ -718,12 +838,12 @@
 
             if (!user || (!user.email && !user.isAnonymous)) {
                 return (
-                    <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-6 text-center">
-                        <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
+                    <div className="flex h-screen flex-col items-center justify-center bg-scis-navy p-4 md:p-6 text-center">
+                        <div className="bg-white p-8 md:p-10 rounded-3xl shadow-2xl max-w-sm w-full animate-slide-up">
                             <div className="bg-scis-gold text-scis-navy w-16 h-16 mx-auto flex items-center justify-center rounded-2xl shadow-inner mb-6 text-3xl">📊</div>
-                            <h2 className="text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">Grade Analysis</h2>
-                            <p className="text-slate-500 text-sm font-medium mb-8">Sign in with your school email to access student analytics.</p>
-                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm btn-press">
+                            <h2 className="text-2xl md:text-3xl font-black text-scis-navy font-display uppercase tracking-tight mb-2">Grade Analysis</h2>
+                            <p className="text-slate-500 text-xs md:text-sm font-medium mb-8">Sign in with your school email to access student analytics.</p>
+                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl hover:bg-slate-50 transition-colors shadow-sm btn-press text-sm md:text-base">
                                 <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#7fba00" d="M11 0h10v10H11z"/><path fill="#00a4ef" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
                                 Sign In with Microsoft
                             </button>
@@ -737,11 +857,11 @@
                     <nav className="bg-scis-navy border-b-4 border-scis-gold px-4 py-3 sticky top-0 z-40 shadow-md">
                         <div className="max-w-7xl mx-auto flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <div className="bg-scis-gold text-scis-navy w-10 h-10 flex items-center justify-center rounded-xl shadow-inner text-xl">📊</div>
+                                <div className="bg-scis-gold text-scis-navy w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg md:rounded-xl shadow-inner text-base md:text-xl">📊</div>
                                 <div>
-                                    <h1 className="text-xl font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block mt-1">Grade Analysis</h1>
-                                    <h1 className="text-xl font-display font-black text-white tracking-tight uppercase leading-none sm:hidden mt-1">Analytics</h1>
-                                    {user?.email && <div className="text-[10px] text-scis-gold font-bold tracking-widest uppercase mt-0.5">{user.email}</div>}
+                                    <h1 className="text-lg md:text-xl font-display font-black text-white tracking-tight uppercase leading-none hidden sm:block mt-1">Grade Analysis</h1>
+                                    <h1 className="text-lg font-display font-black text-white tracking-tight uppercase leading-none sm:hidden mt-1">Analytics</h1>
+                                    {user?.email && <div className="text-[9px] md:text-[10px] text-scis-gold font-bold tracking-widest uppercase mt-0.5">{user.email}</div>}
                                 </div>
                             </div>
                             
@@ -752,7 +872,7 @@
                         </div>
                     </nav>
 
-                    <main className="flex-1">
+                    <main className="flex-1 w-full overflow-x-hidden">
                         <GradeAnalyzer user={user} />
                     </main>
                 </div>
