@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desert Island Survival</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4; /* Light green tint */
+            background-image: radial-gradient(#dcfce7 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .timer-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Custom scrollbar for text area */
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        /* Animation for dealing names */
+        @keyframes popIn {
+            0% { transform: scale(0.5) translateY(-20px); opacity: 0; }
+            70% { transform: scale(1.05) translateY(0); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .name-badge {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Buzzer flash animation */
+        @keyframes flashRed {
+            0%, 100% { background-color: #fef2f2; }
+            50% { background-color: #fecaca; }
+        }
+        .timer-flashing {
+            animation: flashRed 0.5s infinite;
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen p-4 md:p-8">
+
+    <header class="max-w-7xl mx-auto mb-8 text-center bg-white p-6 rounded-2xl shadow-sm border border-green-100">
+        <h1 class="text-4xl md:text-5xl font-extrabold text-green-700 tracking-tight mb-2">🏝️ Desert Island Survival</h1>
+        <p class="text-gray-500 font-medium">Year 8 Team Building & Negotiation Challenge</p>
+    </header>
+
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- COLUMN 1: Groups & Roster (Left) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            
+            <div class="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-t-blue-500">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span>👥</span> 1. Create Groups
+                </h2>
+                
+                <label class="block text-sm font-semibold text-gray-700 mb-2" for="roster">Class Roster (Paste names here)</label>
+                <textarea id="roster" rows="6" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none mb-4 text-sm" placeholder="Alice&#10;Bob&#10;Charlie&#10;..."></textarea>
+                
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="numGroups">Number of Groups</label>
+                        <input type="number" id="numGroups" value="5" min="2" max="10" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-center font-bold">
+                    </div>
+                    <div class="flex-[2] flex items-end h-full">
+                        <button onclick="handleRandomize()" class="w-full h-[46px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow-md flex items-center justify-center gap-2">
+                            <span>🎲</span> Randomize
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area where generated groups will appear -->
+            <div id="groupsContainer" class="flex flex-col gap-4">
+                <!-- Groups injected here via JS -->
+                <div class="text-center p-8 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400">
+                    Paste names and click Randomize to create teams!
+                </div>
+            </div>
+        </section>
+
+        <!-- COLUMN 2: The Items (Center) -->
+        <section class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-lg border-t-4 border-t-amber-500 h-[calc(100vh-12rem)] overflow-y-auto hidden-scrollbar">
+            <h2 class="text-xl font-bold mb-2 flex items-center gap-2">
+                <span>📦</span> 2. The Cargo Hold
+            </h2>
+            <p class="text-sm text-gray-500 mb-6">Your team can only choose <strong>THREE</strong> items. Choose wisely.</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="itemsContainer">
+                <!-- Items injected here via JS to keep HTML clean -->
+            </div>
+        </section>
+
+        <!-- COLUMN 3: Timers (Right) -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Prep Timer -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-t-purple-500 flex flex-col items-center text-center transition-colors duration-300" id="prepTimerCard">
+                <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                    <span>🧠</span> Pitch Prep Time
+                </h2>
+                <p class="text-xs text-gray-500 mb-4">Discuss your 3 items.</p>
+                
+                <div class="text-6xl font-black timer-font tracking-tighter text-gray-800 mb-6" id="prepTimeDisplay">15:00</div>
+                
+                <div class="flex gap-3 w-full">
+                    <button onclick="toggleTimer('prep')" id="prepBtn" class="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold py-3 px-4 rounded-xl transition-all active:scale-95">Start</button>
+                    <button onclick="resetTimer('prep')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl transition-all active:scale-95">Reset</button>
+                </div>
+            </div>
+
+            <!-- Pitch Timer -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-t-red-500 flex flex-col items-center text-center transition-colors duration-300" id="pitchTimerCard">
+                <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                    <span>🔥</span> Survival Pitch
+                </h2>
+                <p class="text-xs text-gray-500 mb-4">Convince the class.</p>
+                
+                <div class="text-6xl font-black timer-font tracking-tighter text-gray-800 mb-6" id="pitchTimeDisplay">02:00</div>
+                
+                <div class="flex gap-3 w-full">
+                    <button onclick="toggleTimer('pitch')" id="pitchBtn" class="flex-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold py-3 px-4 rounded-xl transition-all active:scale-95">Start</button>
+                    <button onclick="resetTimer('pitch')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl transition-all active:scale-95">Reset</button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                <h3 class="font-bold text-blue-800 text-sm mb-2">Teacher Tips:</h3>
+                <ul class="text-xs text-blue-700 space-y-2 list-disc pl-4">
+                    <li>Sound is enabled for timers. Make sure your device volume is up.</li>
+                    <li>Read the items out loud before starting the prep timer.</li>
+                    <li>If a group is silent, ask them a direct question about their items.</li>
+                </ul>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Custom Toast for messages (instead of alert) -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 z-50">
+        <span id="toastIcon">⚠️</span>
+        <span id="toastMessage" class="font-medium text-sm">Message</span>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const items = [
+            { emoji: "🖨️", title: "Mini 3D Printer", desc: "Only prints tiny white plastic cubes, very slowly." },
+            { emoji: "🐕‍🦺", title: "Stubborn Dachshund", desc: "A dog that absolutely demands to be carried everywhere." },
+            { emoji: "🌶️", title: "Gallon of Hot Sauce", desc: "Face-meltingly spicy. No expiration date." },
+            { emoji: "🖥️", title: "Gaming PC", desc: "Top-tier specs, dual GPUs, but absolutely no monitor." },
+            { emoji: "📣", title: "Circus Megaphone", desc: "Only plays loud, repetitive circus music when used." },
+            { emoji: "🧩", title: "500-Piece Puzzle", desc: "A picture of a clear blue sky. Missing exactly 3 pieces." },
+            { emoji: "🐊", title: "One Neon Croc", desc: "A single, left-footed, bright green Croc shoe." },
+            { emoji: "🍿", title: "Salted Popcorn", desc: "A lifetime supply, but it is heavily oversalted." },
+            { emoji: "☂️", title: "Cheese Umbrella", desc: "An umbrella made entirely out of Swiss cheese." },
+            { emoji: "📚", title: "1992 Encyclopedia", desc: "A complete physical set. Very heavy." },
+            { emoji: "🔌", title: "Extension Cord", desc: "50-foot long heavy duty outdoor extension cord." },
+            { emoji: "🧴", title: "Onion Sunscreen", desc: "SPF 100, but smells strongly of raw, pungent onions." }
+        ];
+
+        // Default timer settings (in seconds)
+        const PREP_TIME_DEFAULT = 15 * 60; 
+        const PITCH_TIME_DEFAULT = 2 * 60;
+
+        let timers = {
+            prep: { time: PREP_TIME_DEFAULT, interval: null, isRunning: false, display: 'prepTimeDisplay', btn: 'prepBtn', card: 'prepTimerCard' },
+            pitch: { time: PITCH_TIME_DEFAULT, interval: null, isRunning: false, display: 'pitchTimeDisplay', btn: 'pitchBtn', card: 'pitchTimerCard' }
+        };
+
+        // Initialize Audio Context Flag
+        let audioInitialized = false;
+
+        // --- RENDER ITEMS ON LOAD ---
+        function renderItems() {
+            const container = document.getElementById('itemsContainer');
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "flex gap-4 p-4 border border-gray-100 rounded-xl hover:shadow-md transition-shadow bg-gray-50 hover:bg-white";
+                card.innerHTML = `
+                    <div class="text-4xl flex items-center justify-center bg-white h-16 w-16 rounded-xl shadow-sm border border-gray-100 shrink-0">
+                        ${item.emoji}
+                    </div>
+                    <div class="flex flex-col justify-center">
+                        <h3 class="font-bold text-gray-800 leading-tight">${item.title}</h3>
+                        <p class="text-xs text-gray-500 mt-1 leading-snug">${item.desc}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+        renderItems();
+
+        // --- UTILS ---
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMsg.innerText = message;
+            toastIcon.innerText = type === 'error' ? '⚠️' : '✅';
+            
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            }, 3000);
+        }
+
+        async function initAudio() {
+            if (!audioInitialized) {
+                await Tone.start();
+                audioInitialized = true;
+            }
+        }
+
+        function playPopSound() {
+            if (!audioInitialized) return;
+            const synth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            synth.volume.value = -10;
+            synth.triggerAttackRelease("C6", "32n");
+        }
+
+        function playBuzzerSound() {
+            initAudio().then(() => {
+                // Harsh, loud buzzer sound
+                const synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "square" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.5 }
+                }).toDestination();
+                
+                synth.volume.value = 0; // Loud
+                
+                // Play a dissonant chord to sound like a buzzer
+                synth.triggerAttackRelease(["C2", "C#2", "D2"], "1n");
+            });
+        }
+
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // --- GROUP GENERATION ---
+        async function handleRandomize() {
+            await initAudio(); // Start audio context on user interaction
+            
+            const rosterText = document.getElementById('roster').value;
+            let names = rosterText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            
+            if (names.length === 0) {
+                showToast("Please enter at least one name in the roster.");
+                return;
+            }
+
+            const numGroups = parseInt(document.getElementById('numGroups').value);
+            if (isNaN(numGroups) || numGroups < 2) {
+                showToast("Number of groups must be at least 2.");
+                return;
+            }
+
+            if (numGroups > names.length) {
+                showToast("More groups than students! Decrease groups.");
+                return;
+            }
+
+            // Shuffle and divide
+            names = shuffleArray(names);
+            const groups = Array.from({ length: numGroups }, () => []);
+            
+            names.forEach((name, index) => {
+                groups[index % numGroups].push(name);
+            });
+
+            await animateDealing(groups);
+        }
+
+        async function animateDealing(groups) {
+            const container = document.getElementById('groupsContainer');
+            container.innerHTML = ''; // Clear existing
+
+            // Create empty group cards
+            const groupDivs = [];
+            groups.forEach((group, i) => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden";
+                card.innerHTML = `
+                    <div class="bg-blue-50 text-blue-800 font-bold px-4 py-2 text-sm border-b border-blue-100 flex justify-between">
+                        <span>Group ${i + 1}</span>
+                        <span class="text-blue-400 font-normal text-xs">0 members</span>
+                    </div>
+                    <div class="p-4 flex flex-wrap gap-2" id="group-content-${i}">
+                    </div>
+                `;
+                container.appendChild(card);
+                groupDivs.push(document.getElementById(`group-content-${i}`));
+            });
+
+            // "Deal" the names one by one
+            let maxMembers = Math.max(...groups.map(g => g.length));
+            
+            for (let memberIndex = 0; memberIndex < maxMembers; memberIndex++) {
+                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                    if (groups[groupIndex][memberIndex]) {
+                        
+                        // Add slight delay
+                        await new Promise(resolve => setTimeout(resolve, 150));
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = "name-badge bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-md border border-blue-200";
+                        nameSpan.innerText = groups[groupIndex][memberIndex];
+                        
+                        groupDivs[groupIndex].appendChild(nameSpan);
+                        
+                        // Update member count
+                        const header = groupDivs[groupIndex].previousElementSibling;
+                        header.querySelector('span:last-child').innerText = `${groupDivs[groupIndex].children.length} members`;
+                        
+                        playPopSound();
+                    }
+                }
+            }
+            showToast("Groups randomized successfully!", "success");
+        }
+
+        // --- TIMERS ---
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateTimerDisplay(type) {
+            document.getElementById(timers[type].display).innerText = formatTime(timers[type].time);
+        }
+
+        function toggleTimer(type) {
+            initAudio(); // Ensure audio context is ready
+            
+            const timer = timers[type];
+            const btn = document.getElementById(timer.btn);
+            const card = document.getElementById(timer.card);
+
+            if (timer.isRunning) {
+                // Pause
+                clearInterval(timer.interval);
+                timer.isRunning = false;
+                btn.innerText = "Resume";
+                btn.classList.remove('bg-gray-800', 'text-white', 'hover:bg-gray-900');
+                if(type === 'prep') btn.classList.add('bg-purple-100', 'text-purple-700');
+                if(type === 'pitch') btn.classList.add('bg-red-100', 'text-red-700');
+            } else {
+                // Start
+                if (timer.time === 0) return; // Prevent starting if 0
+                
+                timer.isRunning = true;
+                btn.innerText = "Pause";
+                btn.className = `flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-xl transition-all active:scale-95`;
+                
+                card.classList.remove('timer-flashing');
+
+                timer.interval = setInterval(() => {
+                    timer.time--;
+                    updateTimerDisplay(type);
+
+                    if (timer.time <= 0) {
+                        clearInterval(timer.interval);
+                        timer.isRunning = false;
+                        timer.time = 0;
+                        updateTimerDisplay(type);
+                        btn.innerText = "Start";
+                        
+                        // Trigger Buzzer Effects
+                        playBuzzerSound();
+                        card.classList.add('timer-flashing');
+                        
+                        // Reset button colors
+                        if(type === 'prep') btn.classList.replace('bg-gray-800', 'bg-purple-100'), btn.classList.replace('text-white', 'text-purple-700');
+                        if(type === 'pitch') btn.classList.replace('bg-gray-800', 'bg-red-100'), btn.classList.replace('text-white', 'text-red-700');
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetTimer(type) {
+            const timer = timers[type];
+            clearInterval(timer.interval);
+            timer.isRunning = false;
+            timer.time = type === 'prep' ? PREP_TIME_DEFAULT : PITCH_TIME_DEFAULT;
+            
+            const btn = document.getElementById(timer.btn);
+            btn.innerText = "Start";
+            
+            // Reset button colors based on type
+            btn.className = `flex-1 ${type==='prep'?'bg-purple-100 hover:bg-purple-200 text-purple-700':'bg-red-100 hover:bg-red-200 text-red-700'} font-bold py-3 px-4 rounded-xl transition-all active:scale-95`;
+            
+            document.getElementById(timer.card).classList.remove('timer-flashing');
+            updateTimerDisplay(type);
+        }
+
+        // Initialize displays
+        updateTimerDisplay('prep');
+        updateTimerDisplay('pitch');
+
+    </script>
+</body>
+</html>
