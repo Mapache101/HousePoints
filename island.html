@@ -5,490 +5,429 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mr. Olguin's Island Survival</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Carter+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    
     <style>
         body {
             font-family: 'Nunito', sans-serif;
-            background-color: #0d9488; /* Deep tropical teal */
-            background-image: radial-gradient(#115e59 3px, transparent 3px);
+            background-color: #0f766e;
+            background-image: radial-gradient(#115e59 2px, transparent 2px);
             background-size: 30px 30px;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .font-carter { font-family: 'Carter One', cursive; }
+        
+        .panel {
+            background-color: #fdf6e3;
+            border: 6px solid #c17f59;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
         
-        .game-font {
-            font-family: 'Carter One', cursive;
-        }
-
-        /* Adventure RPG style containers */
-        .parchment-panel {
-            background-color: #fdf8e7;
-            border: 6px solid #8b5a2b; /* Chunky wood border */
-            border-radius: 16px;
-            box-shadow: 8px 8px 0px rgba(4, 47, 46, 0.4);
-        }
-
-        .crate-card {
-            background-color: #fef3c7;
-            border: 4px solid #b45309;
-            border-radius: 12px;
-            box-shadow: 4px 4px 0px #78350f;
+        .item-card {
+            background-color: #fffaf0;
+            border: 4px solid #d4a373;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             transition: transform 0.2s;
         }
-        .crate-card:hover {
-            transform: translateY(-4px) rotate(1deg);
+        
+        .item-card:hover {
+            transform: scale(1.02);
+            border-color: #c17f59;
         }
 
-        /* 3D Pressable Game Buttons */
-        .btn-game {
-            border-bottom-width: 6px;
+        .btn-3d {
             transition: all 0.1s;
+            position: relative;
         }
-        .btn-game:active {
-            border-bottom-width: 0px;
-            transform: translateY(6px);
-        }
-
-        .btn-primary { background-color: #3b82f6; border-color: #1d4ed8; color: white; }
-        .btn-primary:hover { background-color: #60a5fa; }
         
-        .btn-success { background-color: #10b981; border-color: #047857; color: white; }
-        .btn-success:hover { background-color: #34d399; }
+        .btn-3d:active {
+            transform: translateY(4px);
+            border-bottom-width: 0px !important;
+            margin-top: 4px;
+        }
+
+        /* Custom Scrollbar for inner scrolling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1e5c5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c17f59; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a06545; }
+
+        .camp-box {
+            background-color: rgba(255, 255, 255, 0.5);
+            border: 3px dashed #c17f59;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
         
-        .btn-danger { background-color: #ef4444; border-color: #b91c1c; color: white; }
-        .btn-danger:hover { background-color: #f87171; }
-
-        .btn-gray { background-color: #e5e7eb; border-color: #9ca3af; color: #374151; }
-        .btn-gray:hover { background-color: #f3f4f6; }
-
-        /* Custom scrollbar */
-        .hidden-scrollbar::-webkit-scrollbar { width: 10px; }
-        .hidden-scrollbar::-webkit-scrollbar-track { background: #fde68a; border-radius: 8px; border: 2px solid #b45309; }
-        .hidden-scrollbar::-webkit-scrollbar-thumb { background: #d97706; border-radius: 8px; }
-
-        @keyframes dealIn {
-            0% { transform: scale(0.2) rotate(15deg) translateY(-30px); opacity: 0; }
-            70% { transform: scale(1.1) rotate(-5deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0); opacity: 1; }
+        .camp-title {
+            font-weight: 900;
+            color: #8b5a2b;
+            margin-bottom: 0.25rem;
+            border-bottom: 2px solid #d4a373;
+            padding-bottom: 0.25rem;
         }
-        .name-badge {
-            animation: dealIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        
+        .flash-red {
+            animation: flash 0.5s infinite;
         }
-
-        @keyframes flashDanger {
-            0%, 100% { background-color: #fdf8e7; }
+        
+        @keyframes flash {
+            0% { background-color: #fdf6e3; }
             50% { background-color: #fca5a5; }
-        }
-        .timer-flashing {
-            animation: flashDanger 0.5s infinite;
+            100% { background-color: #fdf6e3; }
         }
     </style>
 </head>
-<body class="text-gray-900 min-h-screen p-4 md:p-8">
+<body class="p-3 md:p-5 text-gray-800 flex flex-col">
 
-    <header class="max-w-7xl mx-auto mb-8 text-center parchment-panel p-6">
-        <h1 class="text-4xl md:text-6xl game-font text-amber-700 tracking-wider mb-2 drop-shadow-md">🏝️ Mr. Olguin's Island Survival</h1>
-        <p class="text-amber-900 font-bold text-lg">Team Building & Negotiation Challenge</p>
+    <!-- Header Area -->
+    <header class="text-center mb-4 shrink-0">
+        <h1 class="text-4xl md:text-5xl font-carter text-[#fdf6e3] drop-shadow-lg flex items-center justify-center gap-3">
+            🏝️ Mr. Olguin's Island Survival
+        </h1>
+        <p class="text-[#fdf6e3] font-bold mt-1 text-lg drop-shadow-md tracking-wide">Team Building & Negotiation Challenge</p>
     </header>
 
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        <!-- COLUMN 1: Camps & Roster (Left) -->
-        <section class="lg:col-span-4 flex flex-col gap-6">
+    <!-- Main Game Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6 flex-grow min-h-0">
+
+        <!-- Column 1: Camps -->
+        <div class="panel flex flex-col p-4 lg:col-span-1 min-h-0">
+            <h2 class="text-2xl font-carter text-[#8b5a2b] mb-3 flex items-center gap-2 shrink-0">
+                ⛺ 1. Create Camps
+            </h2>
             
-            <div class="parchment-panel p-6">
-                <h2 class="text-2xl game-font text-amber-800 mb-4 flex items-center gap-2">
-                    <span>🏕️</span> 1. Create Camps
-                </h2>
-                
-                <label class="block font-bold text-amber-900 mb-2" for="roster">Survivor Roster (Paste names here)</label>
-                <textarea id="roster" rows="5" class="w-full p-3 bg-amber-50 border-4 border-amber-700 rounded-xl focus:outline-none focus:ring-4 ring-amber-300 resize-none mb-4 font-bold text-amber-900" placeholder="Alice&#10;Bob&#10;Charlie&#10;..."></textarea>
-                
-                <div class="flex items-center gap-4 mb-4">
-                    <div class="flex-1">
-                        <label class="block font-bold text-amber-900 mb-2" for="numGroups">Total Camps</label>
-                        <input type="number" id="numGroups" value="5" min="2" max="10" class="w-full p-3 bg-amber-50 border-4 border-amber-700 rounded-xl focus:outline-none focus:ring-4 ring-amber-300 text-center font-bold text-xl text-amber-900">
-                    </div>
-                    <div class="flex-[2] flex items-end h-full pt-8">
-                        <button onclick="handleRandomize()" class="w-full h-[56px] btn-game btn-primary font-bold text-lg rounded-xl flex items-center justify-center gap-2 game-font">
-                            <span>🎲</span> Randomize
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Area where generated groups will appear -->
-            <div id="groupsContainer" class="flex flex-col gap-4">
-                <div class="text-center p-8 border-4 border-dashed border-amber-900 rounded-2xl text-amber-100 font-bold bg-amber-900/40">
-                    Paste names and hit Randomize to set up camps!
-                </div>
-            </div>
-        </section>
-
-        <!-- COLUMN 2: The Items (Center) -->
-        <section class="lg:col-span-5 parchment-panel p-6 h-[calc(100vh-12rem)] overflow-y-auto hidden-scrollbar relative">
-            <div class="sticky top-0 bg-[#fdf8e7] pb-4 z-10 border-b-4 border-amber-900/20 mb-4">
-                <h2 class="text-3xl game-font text-amber-800 flex items-center gap-2 mb-2">
-                    <span>📦</span> 2. The Cargo Hold
-                </h2>
-                
-                <!-- Toggle Cargo Buttons -->
-                <div class="flex gap-2 mb-2">
-                    <button id="btn-scraps" onclick="switchCargo('scraps')" class="flex-1 btn-game btn-primary font-bold py-2 px-2 rounded-lg text-sm transition-colors">🚢 Shipwreck Scraps</button>
-                    <button id="btn-cursed" onclick="switchCargo('cursed')" class="flex-1 btn-game btn-gray font-bold py-2 px-2 rounded-lg text-sm transition-colors">🏴‍☠️ The Cursed Container</button>
-                </div>
-
-                <p class="text-sm font-bold text-red-600 mt-1">Your camp can only choose <span class="text-lg underline decoration-wavy">THREE</span> items. Choose wisely.</p>
+            <div class="shrink-0 mb-3">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Survivor Roster (Paste names here)</label>
+                <textarea id="roster" class="w-full h-24 p-2 border-3 border-[#d4a373] rounded-lg bg-white focus:outline-none focus:border-[#c17f59] resize-none" placeholder="Alice&#10;Bob&#10;Charlie..."></textarea>
             </div>
             
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="itemsContainer">
-                <!-- Items injected here via JS to keep HTML clean -->
+            <div class="flex items-end gap-2 shrink-0 mb-3">
+                <div class="w-1/3">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Camps</label>
+                    <input type="number" id="num-groups" value="5" min="2" max="10" class="w-full p-2 border-3 border-[#d4a373] rounded-lg text-center font-bold text-lg">
+                </div>
+                <button onclick="generateGroups()" class="btn-3d w-2/3 bg-[#4285F4] text-white py-2 rounded-lg font-bold border-b-4 border-[#2b5cbf] flex items-center justify-center gap-2">
+                    🎲 Randomize
+                </button>
             </div>
-        </section>
-
-        <!-- COLUMN 3: Timers (Right) -->
-        <section class="lg:col-span-3 flex flex-col gap-6">
             
-            <!-- Prep Timer -->
-            <div class="parchment-panel p-6 flex flex-col items-center text-center transition-colors duration-300" id="prepTimerCard">
-                <h2 class="text-2xl game-font text-blue-800 mb-1 flex items-center gap-2">
-                    <span>🧭</span> Pitch Prep Time
-                </h2>
-                <p class="font-bold text-amber-800 mb-4">Discuss your 3 items.</p>
+            <div id="groups-output" class="flex-grow overflow-y-auto mt-2 pr-2">
+                <div class="text-center text-gray-500 italic mt-8 font-bold">Paste names and hit Randomize to set up camps!</div>
+            </div>
+        </div>
+
+        <!-- Column 2: Cargo Hold -->
+        <div class="panel flex flex-col p-4 lg:col-span-2 min-h-0">
+            <!-- Header for Cargo Hold locked at top -->
+            <div class="shrink-0 text-center mb-3">
+                <h2 class="text-3xl font-carter text-[#8b5a2b] mb-3">📦 2. The Cargo Hold</h2>
                 
-                <div class="text-7xl game-font tracking-wider text-blue-900 mb-6 drop-shadow-sm" id="prepTimeDisplay">15:00</div>
+                <div class="flex flex-wrap justify-center gap-2 mb-3">
+                    <button id="btn-scraps" onclick="loadItems('scraps')" class="btn-3d bg-[#4285F4] text-white px-4 py-2 rounded-lg font-bold border-b-4 border-[#2b5cbf]">🚢 Shipwreck Scraps</button>
+                    <button id="btn-cursed" onclick="loadItems('cursed')" class="btn-3d bg-[#d1d5db] text-gray-600 px-4 py-2 rounded-lg font-bold border-b-4 border-gray-400">🏴‍☠️ The Cursed Container</button>
+                </div>
                 
-                <div class="flex gap-3 w-full">
-                    <button onclick="toggleTimer('prep')" id="prepBtn" class="flex-1 btn-game btn-primary font-bold py-3 px-4 rounded-xl game-font text-xl tracking-wide">Start</button>
-                    <button onclick="resetTimer('prep')" class="btn-game btn-gray font-bold py-3 px-4 rounded-xl">Reset</button>
+                <p class="text-red-700 font-bold text-sm bg-red-100 py-1 px-3 rounded-full inline-block border border-red-300">
+                    Your camp can only choose <span class="underline decoration-wavy text-lg">THREE</span> items. Choose wisely.
+                </p>
+            </div>
+            
+            <!-- Items Grid (Scrollable) -->
+            <div id="items-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto flex-grow p-1">
+                <!-- Cards injected here via JS -->
+            </div>
+        </div>
+
+        <!-- Column 3: Timers -->
+        <div class="flex flex-col gap-4 lg:col-span-1 min-h-0">
+            
+            <!-- Timer 1: Prep -->
+            <div class="panel flex-1 flex flex-col items-center justify-center p-4">
+                <h2 class="text-2xl font-carter text-[#2b5cbf] mb-1 flex items-center gap-2">🧭 Pitch Prep Time</h2>
+                <p class="text-sm font-bold text-gray-600 mb-2">Discuss your 3 items.</p>
+                <div id="prep-display" class="text-6xl font-carter text-[#1e3a8a] mb-4 tracking-wider">15:00</div>
+                <div class="flex gap-2 w-full px-4">
+                    <button onclick="togglePrepTimer()" id="prep-btn" class="btn-3d flex-1 bg-[#4285F4] text-white py-2 rounded-lg font-bold border-b-4 border-[#2b5cbf]">Start</button>
+                    <button onclick="resetPrepTimer()" class="btn-3d w-1/3 bg-[#e2e8f0] text-gray-700 py-2 rounded-lg font-bold border-b-4 border-gray-400">Reset</button>
+                </div>
+            </div>
+            
+            <!-- Timer 2: Pitch -->
+            <div id="pitch-panel" class="panel flex-1 flex flex-col items-center justify-center p-4 transition-colors duration-300">
+                <h2 class="text-2xl font-carter text-[#b91c1c] mb-1 flex items-center gap-2">🔥 Survival Pitch</h2>
+                <p class="text-sm font-bold text-gray-600 mb-2">Convince the rest.</p>
+                <div id="pitch-display" class="text-6xl font-carter text-[#7f1d1d] mb-4 tracking-wider">02:00</div>
+                <div class="flex gap-2 w-full px-4">
+                    <button onclick="togglePitchTimer()" id="pitch-btn" class="btn-3d flex-1 bg-[#ef4444] text-white py-2 rounded-lg font-bold border-b-4 border-[#b91c1c]">Start</button>
+                    <button onclick="resetPitchTimer()" class="btn-3d w-1/3 bg-[#e2e8f0] text-gray-700 py-2 rounded-lg font-bold border-b-4 border-gray-400">Reset</button>
                 </div>
             </div>
 
-            <!-- Pitch Timer -->
-            <div class="parchment-panel p-6 flex flex-col items-center text-center transition-colors duration-300" id="pitchTimerCard">
-                <h2 class="text-2xl game-font text-red-800 mb-1 flex items-center gap-2">
-                    <span>🔥</span> Survival Pitch
-                </h2>
-                <p class="font-bold text-amber-800 mb-4">Convince the rest.</p>
-                
-                <div class="text-7xl game-font tracking-wider text-red-900 mb-6 drop-shadow-sm" id="pitchTimeDisplay">02:00</div>
-                
-                <div class="flex gap-3 w-full">
-                    <button onclick="toggleTimer('pitch')" id="pitchBtn" class="flex-1 btn-game btn-danger font-bold py-3 px-4 rounded-xl game-font text-xl tracking-wide">Start</button>
-                    <button onclick="resetTimer('pitch')" class="btn-game btn-gray font-bold py-3 px-4 rounded-xl">Reset</button>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Custom Toast Message -->
-    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-amber-900 text-amber-50 px-6 py-4 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-3 z-50 border-4 border-amber-700">
-        <span id="toastIcon" class="text-2xl">⚠️</span>
-        <span id="toastMessage" class="font-bold text-lg game-font tracking-wide">Message</span>
+        </div>
     </div>
 
     <script>
         // --- DATA ---
-        const cargoLists = {
-            scraps: [
-                { emoji: "🖨️", title: "Mini 3D Printer", desc: "Only prints tiny white plastic cubes, very slowly." },
-                { emoji: "🐕‍🦺", title: "Stubborn Dachshund", desc: "A dog that absolutely demands to be carried everywhere." },
-                { emoji: "🌶️", title: "Gallon of Hot Sauce", desc: "Face-meltingly spicy. No expiration date." },
-                { emoji: "🖥️", title: "Gaming PC", desc: "Top-tier specs, dual GPUs, but absolutely no monitor." },
-                { emoji: "📣", title: "Circus Megaphone", desc: "Only plays loud, repetitive circus music when used." },
-                { emoji: "🧩", title: "500-Piece Puzzle", desc: "A picture of a clear blue sky. Missing exactly 3 pieces." },
-                { emoji: "🐊", title: "One Neon Croc", desc: "A single, left-footed, bright green Croc shoe." },
-                { emoji: "🍿", title: "Salted Popcorn", desc: "A lifetime supply, but it is heavily oversalted." },
-                { emoji: "☂️", title: "Cheese Umbrella", desc: "An umbrella made entirely out of Swiss cheese." },
-                { emoji: "📚", title: "1992 Encyclopedia", desc: "A complete physical set. Very heavy." },
-                { emoji: "🔌", title: "Extension Cord", desc: "50-foot long heavy duty outdoor extension cord." },
-                { emoji: "🧴", title: "Onion Sunscreen", desc: "SPF 100, but smells strongly of raw, pungent onions." }
-            ],
-            cursed: [
-                { emoji: "🦩", title: "Flamingo Float", desc: "A giant inflatable pool float. It has a slow leak." },
-                { emoji: "🍅", title: "10k Ketchup Packets", desc: "A massive crate of fast-food ketchup. Some are very sticky." },
-                { emoji: "🐟", title: "Singing Fish Plaque", desc: "Sings 'Don't Worry, Be Happy' on an endless, un-stoppable loop." },
-                { emoji: "🥄", title: "Bent Titanium Spork", desc: "Indestructible, but permanently bent at a useless 90-degree angle." },
-                { emoji: "✂️", title: "Left-Handed Scissors", desc: "A suitcase full of them. Practically useless for 90% of the class." },
-                { emoji: "🧊", title: "Crystal Chandelier", desc: "Gorgeous, extremely fragile, and requires 220v power." },
-                { emoji: "🦘", title: "Rusty Pogo Stick", desc: "Squeaks incredibly loudly. The spring is highly questionable." },
-                { emoji: "🪩", title: "Disco Ball & Laser", desc: "Perfect for a dance party, terrible for basic survival." },
-                { emoji: "🕴️", title: "Cardboard Wrestler", desc: "A life-sized cardboard cutout of an aggressive pro wrestler." },
-                { emoji: "✨", title: "50 lbs of Glitter", desc: "The ultimate crafting weapon. It gets absolutely everywhere." },
-                { emoji: "🛞", title: "Broken Unicycle", desc: "Missing the seat, and the tire is mostly flat." },
-                { emoji: "👔", title: "Tiny Tuxedo", desc: "A very fancy, high-end tuxedo meant for a medium-sized dog." },
-                { emoji: "🕰️", title: "Grandfather Clock", desc: "Incredibly heavy. Loudly chimes every single 4 minutes." },
-                { emoji: "🐔", title: "Rubber Chickens", desc: "A military duffel bag containing exactly 142 screaming rubber chickens." },
-                { emoji: "🛒", title: "Shopping Cart", desc: "One wheel is jammed, making it veer aggressively to the left." },
-                { emoji: "🎺", title: "Cement Tuba", desc: "A brass tuba inexplicably filled to the brim with hardened cement." },
-                { emoji: "🧻", title: "Locked Toilet Paper", desc: "One precious roll of 1-ply TP, locked inside a titanium safe (no code)." },
-                { emoji: "⛷️", title: "One Waterski", desc: "A single, incredibly heavy wooden waterski from the 1970s." },
-                { emoji: "🐝", title: "Jar of Angry Bees", desc: "A glass jar filled with very agitated bees. Do not open." },
-                { emoji: "🎸", title: "Air Guitar", desc: "An empty guitar case with a certificate of authenticity for an 'Invisible Guitar'." }
-            ]
-        };
+        const shipwreckScraps = [
+            { icon: "🖨️", name: "3D Printer", desc: "Only prints tiny white plastic cubes, very slowly. Requires no power." },
+            { icon: "🐕", name: "Stubborn Dachshund", desc: "Demands to be carried everywhere. Will bark at nothing." },
+            { icon: "🌶️", name: "Gallon of Hot Sauce", desc: "Face-meltingly spicy. No expiration date." },
+            { icon: "🖥️", name: "Gaming PC", desc: "Top-tier specs, dual GPUs, but absolutely no monitor or power source." },
+            { icon: "📢", name: "Circus Megaphone", desc: "Only plays loud, repetitive circus music when used." },
+            { icon: "🧩", name: "500-Piece Puzzle", desc: "A picture of a clear blue sky. Missing exactly 3 pieces." },
+            { icon: "🐊", name: "One Neon Croc", desc: "A single, left-footed, bright green Croc shoe." },
+            { icon: "🍿", name: "Salted Popcorn", desc: "A lifetime supply, but it is heavily oversalted." },
+            { icon: "🧀", name: "Cheese Umbrella", desc: "Made entirely out of solid Swiss cheese." },
+            { icon: "📚", name: "Encyclopedia", desc: "A complete, heavy physical set from 1992." },
+            { icon: "🔌", name: "Extension Cord", desc: "A 50-foot, bright orange extension cord." },
+            { icon: "🧴", name: "Onion Sunscreen", desc: "SPF 100, but smells overwhelmingly of raw onions." }
+        ];
 
-        let currentCargo = 'scraps';
+        const cursedContainer = [
+            { icon: "✨", name: "50 lbs of Glitter", desc: "Extremely fine, highly reflective, gets everywhere." },
+            { icon: "🐝", name: "Jar of Angry Bees", desc: "A giant glass jar full of agitated bees. Fragile." },
+            { icon: "🎺", name: "Cement Tuba", desc: "A fully brass tuba filled solid with concrete. Very heavy." },
+            { icon: "🎸", name: "Invisible Air Guitar", desc: "Comes with a real strap, but the guitar is completely invisible." },
+            { icon: "🥢", name: "Single Chopstick", desc: "Made of titanium, engraved with 'Number 1'." },
+            { icon: "🔨", name: "Squeaky Mallet", desc: "Makes a loud cartoon squeak on impact. Soft rubber." },
+            { icon: "🎯", name: "Inflatable Dartboard", desc: "Comes with three real, sharp darts." },
+            { icon: "🔨", name: "Glass Hammer", desc: "Beautifully crafted, but entirely fragile glass." },
+            { icon: "💧", name: "Diet Water", desc: "Zero calories, dehydrated powder. Just add water." },
+            { icon: "🍵", name: "Waterproof Teabags", desc: "Will absolutely not brew in any liquid." },
+            { icon: "💺", name: "Ejector Seat", desc: "Fully functional, but unattached to any vehicle." },
+            { icon: "🧭", name: "Reverse Compass", desc: "Always points exactly towards the nearest duck." },
+            { icon: "📖", name: "Book of Spoilers", desc: "Contains the ending to every movie ever made." },
+            { icon: "🍳", name: "Leaky Frying Pan", desc: "Has several perfectly round holes in the bottom." },
+            { icon: "🚪", name: "Screen Door", desc: "Designed for a submarine. Keeps bugs out." },
+            { icon: "🫖", name: "Chocolate Teapot", desc: "Melts immediately upon contact with heat or water." },
+            { icon: "🔋", name: "Battery Charger", desc: "Requires AA batteries to charge other batteries." },
+            { icon: "🧨", name: "Fireproof Match", desc: "A single match that physically cannot be ignited." },
+            { icon: "🕯️", name: "Scented Candle", desc: "Smells overwhelmingly like a wet dog." },
+            { icon: "🎈", name: "Giant Whoopee Cushion", desc: "Easily startled. Very loud." }
+        ];
 
-        const PREP_TIME_DEFAULT = 15 * 60; 
-        const PITCH_TIME_DEFAULT = 2 * 60;
-
-        let timers = {
-            prep: { time: PREP_TIME_DEFAULT, interval: null, isRunning: false, display: 'prepTimeDisplay', btn: 'prepBtn', card: 'prepTimerCard' },
-            pitch: { time: PITCH_TIME_DEFAULT, interval: null, isRunning: false, display: 'pitchTimeDisplay', btn: 'pitchBtn', card: 'pitchTimerCard' }
-        };
-
-        let audioInitialized = false;
-
-        // --- RENDER ITEMS ON LOAD ---
-        function renderItems() {
-            const container = document.getElementById('itemsContainer');
-            container.innerHTML = ''; // Clear container before rendering
-            cargoLists[currentCargo].forEach(item => {
-                const card = document.createElement('div');
-                card.className = "crate-card flex flex-col p-4 relative overflow-hidden";
-                card.innerHTML = `
-                    <div class="absolute -right-4 -top-4 opacity-10 text-8xl pointer-events-none">${item.emoji}</div>
-                    <div class="text-4xl mb-2">${item.emoji}</div>
-                    <h3 class="game-font text-xl text-amber-900 leading-tight mb-1 relative z-10">${item.title}</h3>
-                    <p class="text-sm font-bold text-amber-800/80 leading-snug relative z-10">${item.desc}</p>
-                `;
-                container.appendChild(card);
-            });
+        // --- AUDIO GENERATORS (No external files needed) ---
+        let audioCtx;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            // Resume context if browser suspended it
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
         }
-        renderItems();
 
-        function switchCargo(listName) {
-            initAudio(); // Ensures sound can play if they click this first
-            currentCargo = listName;
+        function playPop() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.1);
+            } catch (e) { console.error("Audio error:", e); }
+        }
+
+        function playBuzzer() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, ctx.currentTime);
+                osc.frequency.setValueAtTime(100, ctx.currentTime + 0.8);
+                gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 1.5);
+            } catch (e) { console.error("Audio error:", e); }
+        }
+
+        // --- CARGO HOLD LOGIC ---
+        function loadItems(listName, playSound = true) {
+            if (playSound) playPop();
+            const grid = document.getElementById('items-grid');
+            const items = listName === 'scraps' ? shipwreckScraps : cursedContainer;
             
+            // UI Button styling update
             const btnScraps = document.getElementById('btn-scraps');
             const btnCursed = document.getElementById('btn-cursed');
-
-            // Update active states
+            
             if (listName === 'scraps') {
-                btnScraps.className = "flex-1 btn-game btn-primary font-bold py-2 px-2 rounded-lg text-sm transition-colors";
-                btnCursed.className = "flex-1 btn-game btn-gray font-bold py-2 px-2 rounded-lg text-sm transition-colors";
+                btnScraps.className = "btn-3d bg-[#4285F4] text-white px-4 py-2 rounded-lg font-bold border-b-4 border-[#2b5cbf]";
+                btnCursed.className = "btn-3d bg-[#d1d5db] text-gray-600 px-4 py-2 rounded-lg font-bold border-b-4 border-gray-400";
             } else {
-                btnScraps.className = "flex-1 btn-game btn-gray font-bold py-2 px-2 rounded-lg text-sm transition-colors";
-                btnCursed.className = "flex-1 btn-game btn-danger font-bold py-2 px-2 rounded-lg text-sm transition-colors";
+                btnCursed.className = "btn-3d bg-[#ef4444] text-white px-4 py-2 rounded-lg font-bold border-b-4 border-[#b91c1c]";
+                btnScraps.className = "btn-3d bg-[#d1d5db] text-gray-600 px-4 py-2 rounded-lg font-bold border-b-4 border-gray-400";
             }
 
-            renderItems();
-            playPopSound(); // Satisfying click noise
+            grid.innerHTML = items.map(item => `
+                <div class="item-card flex items-start gap-3">
+                    <div class="text-4xl shrink-0 mt-1">${item.icon}</div>
+                    <div>
+                        <h3 class="font-carter text-lg text-[#8b5a2b] leading-tight">${item.name}</h3>
+                        <p class="text-sm text-gray-600 mt-1 leading-snug">${item.desc}</p>
+                    </div>
+                </div>
+            `).join('');
         }
 
-        // --- UTILS ---
-        function showToast(message, type = 'error') {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMessage');
-            const toastIcon = document.getElementById('toastIcon');
-            
-            toastMsg.innerText = message;
-            toastIcon.innerText = type === 'error' ? '⚠️' : '✅';
-            
-            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
-            toast.classList.add('opacity-100', 'translate-y-0');
-            
-            setTimeout(() => {
-                toast.classList.remove('opacity-100', 'translate-y-0');
-                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
-            }, 3000);
-        }
-
-        async function initAudio() {
-            if (!audioInitialized) {
-                await Tone.start();
-                audioInitialized = true;
-            }
-        }
-
-        function playPopSound() {
-            if (!audioInitialized) return;
-            const synth = new Tone.Synth({
-                oscillator: { type: "triangle" }, // Changed to triangle for a 'woodier' click
-                envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
-            }).toDestination();
-            synth.volume.value = -12;
-            synth.triggerAttackRelease("G5", "32n");
-        }
-
-        function playBuzzerSound() {
-            initAudio().then(() => {
-                const synth = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "sawtooth" },
-                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.8 }
-                }).toDestination();
-                
-                synth.volume.value = -5;
-                synth.triggerAttackRelease(["C2", "D#2", "F#2"], "1n"); // Dissonant buzzer chord
-            });
-        }
-
-        function shuffleArray(array) {
-            let currentIndex = array.length, randomIndex;
-            while (currentIndex != 0) {
-                randomIndex = Math.floor(Math.random() * currentIndex);
-                currentIndex--;
-                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-            }
-            return array;
-        }
-
-        // --- GROUP GENERATION ---
-        async function handleRandomize() {
-            await initAudio(); 
-            
+        // --- GROUP GENERATOR LOGIC ---
+        async function generateGroups() {
             const rosterText = document.getElementById('roster').value;
-            let names = rosterText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            const names = rosterText.split('\n').map(n => n.trim()).filter(n => n !== '');
+            const numGroups = parseInt(document.getElementById('num-groups').value) || 5;
+            const output = document.getElementById('groups-output');
             
             if (names.length === 0) {
-                showToast("Please enter at least one survivor in the roster.");
+                output.innerHTML = '<div class="text-red-500 font-bold text-center mt-4">Please add some names first!</div>';
                 return;
             }
 
-            const numGroups = parseInt(document.getElementById('numGroups').value);
-            if (isNaN(numGroups) || numGroups < 2) {
-                showToast("Total camps must be at least 2.");
-                return;
+            // Shuffle array
+            for (let i = names.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [names[i], names[j]] = [names[j], names[i]];
             }
 
-            if (numGroups > names.length) {
-                showToast("More camps than survivors! Decrease camps.");
-                return;
-            }
-
-            names = shuffleArray(names);
+            // Create groups array
             const groups = Array.from({ length: numGroups }, () => []);
-            
             names.forEach((name, index) => {
                 groups[index % numGroups].push(name);
             });
 
-            await animateDealing(groups);
-        }
-
-        async function animateDealing(groups) {
-            const container = document.getElementById('groupsContainer');
-            container.innerHTML = ''; 
-
-            const groupDivs = [];
-            groups.forEach((group, i) => {
-                const card = document.createElement('div');
-                card.className = "crate-card overflow-hidden";
-                card.innerHTML = `
-                    <div class="bg-amber-900 text-amber-100 px-4 py-2 flex justify-between items-center border-b-4 border-amber-950">
-                        <span class="game-font text-lg tracking-wide">Camp ${i + 1}</span>
-                        <span class="text-amber-400 font-bold text-xs bg-amber-950 px-2 py-1 rounded-md">0 survivors</span>
-                    </div>
-                    <div class="p-4 flex flex-wrap gap-2 min-h-[60px]" id="group-content-${i}">
-                    </div>
-                `;
-                container.appendChild(card);
-                groupDivs.push(document.getElementById(`group-content-${i}`));
-            });
-
-            let maxMembers = Math.max(...groups.map(g => g.length));
+            output.innerHTML = '';
             
-            for (let memberIndex = 0; memberIndex < maxMembers; memberIndex++) {
-                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-                    if (groups[groupIndex][memberIndex]) {
-                        
-                        await new Promise(resolve => setTimeout(resolve, 150));
-                        
-                        const nameSpan = document.createElement('span');
-                        nameSpan.className = "name-badge bg-[#fdf8e7] text-amber-900 font-bold px-3 py-1.5 rounded-lg border-2 border-amber-700 shadow-sm";
-                        nameSpan.innerText = groups[groupIndex][memberIndex];
-                        
-                        groupDivs[groupIndex].appendChild(nameSpan);
-                        
-                        const header = groupDivs[groupIndex].previousElementSibling;
-                        header.querySelector('span:last-child').innerText = `${groupDivs[groupIndex].children.length} survivors`;
-                        
-                        playPopSound();
-                    }
+            // Animate groups appearing
+            for (let i = 0; i < groups.length; i++) {
+                if(groups[i].length > 0){
+                    playPop();
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'camp-box shadow-sm';
+                    groupDiv.innerHTML = `
+                        <div class="camp-title">⛺ Camp ${i + 1}</div>
+                        <div class="text-sm text-gray-700 leading-relaxed">${groups[i].join(', ')}</div>
+                    `;
+                    output.appendChild(groupDiv);
+                    // Slight delay for animation effect
+                    await new Promise(r => setTimeout(r, 150));
                 }
             }
-            showToast("Camps assembled!", "success");
         }
 
-        // --- TIMERS ---
+        // --- TIMERS LOGIC ---
+        let prepInterval, pitchInterval;
+        let prepTime = 15 * 60;
+        let pitchTime = 2 * 60;
+        let isPrepRunning = false;
+        let isPitchRunning = false;
+
         function formatTime(seconds) {
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = (seconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
         }
 
-        function updateTimerDisplay(type) {
-            document.getElementById(timers[type].display).innerText = formatTime(timers[type].time);
+        // Prep Timer
+        function updatePrepDisplay() {
+            document.getElementById('prep-display').innerText = formatTime(prepTime);
         }
-
-        function toggleTimer(type) {
-            initAudio(); 
-            
-            const timer = timers[type];
-            const btn = document.getElementById(timer.btn);
-            const card = document.getElementById(timer.card);
-
-            if (timer.isRunning) {
-                clearInterval(timer.interval);
-                timer.isRunning = false;
-                btn.innerText = "Resume";
-                btn.classList.remove('btn-success');
-                if(type === 'prep') btn.classList.add('btn-primary');
-                if(type === 'pitch') btn.classList.add('btn-danger');
+        function togglePrepTimer() {
+            const btn = document.getElementById('prep-btn');
+            if (isPrepRunning) {
+                clearInterval(prepInterval);
+                btn.innerText = 'Resume';
+                btn.className = "btn-3d flex-1 bg-[#10b981] text-white py-2 rounded-lg font-bold border-b-4 border-[#047857]";
             } else {
-                if (timer.time === 0) return; 
-                
-                timer.isRunning = true;
-                btn.innerText = "Pause";
-                
-                // Change to a running state color (greenish)
-                btn.className = `flex-1 btn-game btn-success font-bold py-3 px-4 rounded-xl game-font text-xl tracking-wide`;
-                
-                card.classList.remove('timer-flashing');
-
-                timer.interval = setInterval(() => {
-                    timer.time--;
-                    updateTimerDisplay(type);
-
-                    if (timer.time <= 0) {
-                        clearInterval(timer.interval);
-                        timer.isRunning = false;
-                        timer.time = 0;
-                        updateTimerDisplay(type);
-                        btn.innerText = "Start";
-                        
-                        playBuzzerSound();
-                        card.classList.add('timer-flashing');
-                        
-                        btn.className = `flex-1 btn-game ${type === 'prep' ? 'btn-primary' : 'btn-danger'} font-bold py-3 px-4 rounded-xl game-font text-xl tracking-wide`;
+                playPop();
+                btn.innerText = 'Pause';
+                btn.className = "btn-3d flex-1 bg-[#f59e0b] text-white py-2 rounded-lg font-bold border-b-4 border-[#b45309]";
+                prepInterval = setInterval(() => {
+                    if (prepTime > 0) {
+                        prepTime--;
+                        updatePrepDisplay();
+                    } else {
+                        clearInterval(prepInterval);
+                        playBuzzer();
                     }
                 }, 1000);
             }
+            isPrepRunning = !isPrepRunning;
+        }
+        function resetPrepTimer() {
+            clearInterval(prepInterval);
+            isPrepRunning = false;
+            prepTime = 15 * 60;
+            updatePrepDisplay();
+            const btn = document.getElementById('prep-btn');
+            btn.innerText = 'Start';
+            btn.className = "btn-3d flex-1 bg-[#4285F4] text-white py-2 rounded-lg font-bold border-b-4 border-[#2b5cbf]";
         }
 
-        function resetTimer(type) {
-            const timer = timers[type];
-            clearInterval(timer.interval);
-            timer.isRunning = false;
-            timer.time = type === 'prep' ? PREP_TIME_DEFAULT : PITCH_TIME_DEFAULT;
-            
-            const btn = document.getElementById(timer.btn);
-            btn.innerText = "Start";
-            
-            btn.className = `flex-1 btn-game ${type === 'prep' ? 'btn-primary' : 'btn-danger'} font-bold py-3 px-4 rounded-xl game-font text-xl tracking-wide`;
-            
-            document.getElementById(timer.card).classList.remove('timer-flashing');
-            updateTimerDisplay(type);
+        // Pitch Timer
+        function updatePitchDisplay() {
+            document.getElementById('pitch-display').innerText = formatTime(pitchTime);
+        }
+        function togglePitchTimer() {
+            const btn = document.getElementById('pitch-btn');
+            const panel = document.getElementById('pitch-panel');
+            panel.classList.remove('flash-red');
+
+            if (isPitchRunning) {
+                clearInterval(pitchInterval);
+                btn.innerText = 'Resume';
+                btn.className = "btn-3d flex-1 bg-[#10b981] text-white py-2 rounded-lg font-bold border-b-4 border-[#047857]";
+            } else {
+                playPop();
+                btn.innerText = 'Pause';
+                btn.className = "btn-3d flex-1 bg-[#f59e0b] text-white py-2 rounded-lg font-bold border-b-4 border-[#b45309]";
+                pitchInterval = setInterval(() => {
+                    if (pitchTime > 0) {
+                        pitchTime--;
+                        updatePitchDisplay();
+                    } else {
+                        clearInterval(pitchInterval);
+                        isPitchRunning = false;
+                        playBuzzer();
+                        panel.classList.add('flash-red');
+                        btn.innerText = 'Start';
+                        btn.className = "btn-3d flex-1 bg-[#ef4444] text-white py-2 rounded-lg font-bold border-b-4 border-[#b91c1c]";
+                    }
+                }, 1000);
+            }
+            isPitchRunning = !isPitchRunning;
+        }
+        function resetPitchTimer() {
+            clearInterval(pitchInterval);
+            isPitchRunning = false;
+            pitchTime = 2 * 60;
+            updatePitchDisplay();
+            const btn = document.getElementById('pitch-btn');
+            btn.innerText = 'Start';
+            btn.className = "btn-3d flex-1 bg-[#ef4444] text-white py-2 rounded-lg font-bold border-b-4 border-[#b91c1c]";
+            document.getElementById('pitch-panel').classList.remove('flash-red');
         }
 
-        updateTimerDisplay('prep');
-        updateTimerDisplay('pitch');
-        
-
+        // Init
+        loadItems('scraps', false);
+        updatePrepDisplay();
+        updatePitchDisplay();
     </script>
 </body>
 </html>
