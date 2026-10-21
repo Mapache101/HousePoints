@@ -690,46 +690,54 @@
                             </div>
                             )}
 
-                            {/* BOTTOM ACTION BAR */}
-                            <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-scis-navy/90 backdrop-blur-xl border-t border-white/10 z-[60]">
-                                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-                                    <div className="flex gap-3 w-full sm:w-auto order-2 sm:order-1">
-                                        <button 
-                                            onClick={markAllPresent}
-                                            disabled={allPresent}
-                                            className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-black uppercase tracking-wider text-xs shadow-lg btn-press border whitespace-nowrap ${allPresent ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-scis-navy text-scis-gold hover:bg-[#122859] border-scis-gold/30'}`}
-                                        >
-                                            Mark All Present
-                                        </button>
-                                        <button 
-                                            onClick={markUntappedAbsent}
-                                            disabled={nothingToMark}
-                                            className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-black uppercase tracking-wider text-xs shadow-lg btn-press border whitespace-nowrap ${nothingToMark ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/10 text-white hover:bg-white/20 border-white/20'}`}
-                                        >
-                                            Mark Untapped Absent
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="text-white font-bold order-1 sm:order-2 text-sm">
-                                        {missingCount > 0 ? (
-                                            <span className="text-scis-gold animate-pulse flex items-center gap-2">⚠️ {missingCount} student(s) still need to tap.</span>
-                                        ) : (
-                                            <span className="text-green-400 flex items-center gap-2">✅ All students accounted for!</span>
-                                        )}
-                                    </div>
-                                    
-                                    <button 
-                                        onClick={handleSubmit}
-                                        disabled={isSubmitting || missingCount > 0}
-                                        className={`w-full sm:w-auto px-10 py-4 rounded-2xl font-display font-black text-xl tracking-widest uppercase shadow-2xl transition-all btn-press order-3 ${missingCount === 0 ? 'bg-scis-gold text-scis-navy hover:scale-105' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}
-                                    >
-                                        {isSubmitting ? 'Locking...' : 'Lock Attendance'}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="h-24"></div> 
-                        </div>
-                    )}
+                            {/* SCROLLABLE CONTENT CONTAINER */}
+<div className="max-w-7xl mx-auto px-4 py-6 pb-36">
+    <h1 className="text-2xl font-bold mb-4">Class Attendance</h1>
+    
+    {/* Your student list / content goes here */}
+    <div className="space-y-3">
+        {/* Example student item */}
+        {/* {students.map((student) => ( ... ))} */}
+    </div>
+
+    {/* BOTTOM ACTION BAR */}
+    <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-scis-navy/90 backdrop-blur-xl border-t border-white/10 z-[60]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex gap-3 w-full sm:w-auto order-2 sm:order-1">
+                <button 
+                    onClick={markAllPresent}
+                    disabled={allPresent}
+                    className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-black uppercase tracking-wider text-xs shadow-lg btn-press border whitespace-nowrap ${allPresent ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-scis-navy text-scis-gold hover:bg-[#122859] border-scis-gold/30'}`}
+                >
+                    Mark All Present
+                </button>
+                <button 
+                    onClick={markUntappedAbsent}
+                    disabled={nothingToMark}
+                    className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-black uppercase tracking-wider text-xs shadow-lg btn-press border whitespace-nowrap ${nothingToMark ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/10 text-white hover:bg-white/20 border-white/20'}`}
+                >
+                    Mark Untapped Absent
+                </button>
+            </div>
+            
+            <div className="text-white font-bold order-1 sm:order-2 text-sm">
+                {missingCount > 0 ? (
+                    <span className="text-scis-gold animate-pulse flex items-center gap-2">⚠️ {missingCount} student(s) still need to tap.</span>
+                ) : (
+                    <span className="text-green-400 flex items-center gap-2">✅ All students accounted for!</span>
+                )}
+            </div>
+            
+            <button 
+                onClick={handleSubmit}
+                disabled={isSubmitting || missingCount > 0}
+                className={`w-full sm:w-auto px-10 py-4 rounded-2xl font-display font-black text-xl tracking-widest uppercase shadow-2xl transition-all btn-press order-3 ${missingCount === 0 ? 'bg-scis-gold text-scis-navy hover:scale-105' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}
+            >
+                {isSubmitting ? 'Locking...' : 'Lock Attendance'}
+            </button>
+        </div>
+    </div>
+</div>
 
                     {/* ABSENT SUMMARY — PHOTO-READY PROJECTION SCREEN */}
                     {absentSummary && (
